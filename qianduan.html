@@ -1,0 +1,3001 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>随心游 - 智能旅行助手专业版</title>
+
+    <script type="text/javascript">
+        window._AMapSecurityConfig = { securityJsCode: '2ad692c4aee80114e71bd436ff24c7dd' }
+    </script>
+    <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=cfa3e2eeaa9c7658535a994303a33057&plugin=AMap.Driving,AMap.Geolocation,AMap.Walking,AMap.Riding,AMap.Transfer,AMap.Weather,AMap.DistrictSearch,AMap.ControlBar,AMap.HeatMap,AMap.Circle"></script>
+    <script src="https://unpkg.com/maplibre-gl@4.1.1/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@4.1.1/dist/maplibre-gl.css" rel="stylesheet">
+
+    <style>
+        /* ========== 全局基础 ========== */
+        * { margin:0; padding:0; box-sizing:border-box; font-family:"PingFang SC","Microsoft YaHei",sans-serif; }
+        :root {
+            --primary: #409EFF;
+            --bg: #ECF5FF;
+            --humanity: #FFA500;
+            --nature: #4CAF50;
+            --food: #F44336;
+            --casual: #00BCD4;
+            --title: #303133;
+            --body: #606266;
+            --shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+        body { background:var(--bg); min-height:100vh; overflow-x:hidden; position:relative; }
+        .bg-deco { position:fixed; inset:0; z-index:0; opacity:.12; pointer-events:none;
+            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M10 80 Q30 60 50 80 T90 80' stroke='%23409EFF' fill='none' stroke-width='2'/%3E%3C/svg%3E");
+            background-size:300px; }
+
+        /* ========== 动画效果 (周边扫描与脉冲) ========== */
+        @keyframes ripple {
+            0% { transform: scale(0.5); opacity: 1; border-width: 2px; }
+            100% { transform: scale(3.5); opacity: 0; border-width: 8px; }
+        }
+        @keyframes pulse-red { 0%{box-shadow:0 0 0 0 rgba(244,67,54,0.7)} 70%{box-shadow:0 0 0 10px rgba(244,67,54,0)} 100%{box-shadow:0 0 0 0 rgba(244,67,54,0)} }
+        @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(64,158,255,.7)} 70%{box-shadow:0 0 0 10px rgba(64,158,255,0)} 100%{box-shadow:0 0 0 0 rgba(64,158,255,0)} }
+
+        /* ========== Header ========== */
+        header { width:100%; height:80px; background:#fff; box-shadow:var(--shadow); display:flex; align-items:center; justify-content:space-between; padding:0 40px; position:sticky; top:0; z-index:1000; }
+        .logo-area { display:flex; align-items:center; gap:12px; }
+        .logo-icon { width:48px; height:48px; background:linear-gradient(135deg,#409EFF,#67C23A); border-radius:12px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:bold; font-size:20px; }
+        .logo-text { font-size:24px; font-weight:600; color:var(--title); }
+        nav { display:flex; gap:32px; }
+        nav a { text-decoration:none; color:var(--body); font-size:16px; cursor:pointer; transition:.3s; }
+        nav a:hover, nav a.active { color:var(--primary); font-weight:500; }
+        .ai-badge { background:linear-gradient(135deg,#ff6b6b,#feca57); color:#fff; font-size:11px; padding:2px 6px; border-radius:8px; margin-left:4px; font-weight:600; }
+
+        /* ========== Banner ========== */
+        .banner-section { background:linear-gradient(135deg,rgba(64,158,255,.1),rgba(103,194,58,.1)); backdrop-filter:blur(20px); border-radius:20px; margin:20px auto; padding:30px 40px; display:flex; flex-direction:column; align-items:center; gap:20px; position:relative; z-index:10; }
+        .banner-title { font-size:22px; color:var(--title); font-weight:600; text-align:center; }
+        .theme-buttons { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+        .theme-btn { width:200px; height:80px; border:none; border-radius:20px; font-size:18px; font-weight:500; cursor:pointer; transition:all .3s; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 8px 32px rgba(0,0,0,.1),inset 0 1px 0 rgba(255,255,255,.4); border:1px solid rgba(255,255,255,.3); position:relative; overflow:hidden; }
+        .theme-btn::before { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,.3) 0%,transparent 50%); pointer-events:none; }
+        .theme-btn:hover { transform:translateY(-4px) scale(1.02); box-shadow:0 12px 40px rgba(0,0,0,.15); }
+        .theme-btn.humanity { background:linear-gradient(135deg,rgba(255,165,0,.85),rgba(255,140,0,.9)); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.2); }
+        .theme-btn.nature { background:linear-gradient(135deg,rgba(76,175,80,.85),rgba(56,155,60,.9)); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.2); }
+        .theme-btn.food { background:linear-gradient(135deg,rgba(244,67,54,.85),rgba(220,50,40,.9)); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.2); }
+        .theme-btn.casual { background:linear-gradient(135deg,rgba(0,188,212,.85),rgba(0,168,192,.9)); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.2); }
+        .theme-btn span { font-size:24px; }
+
+        /* ========== 主内容区 ========== */
+        .main-content { width:1400px; margin:0 auto 20px; position:relative; z-index:10; display:flex; gap:20px; min-height:calc(100vh - 360px); }
+
+        /* ========== 左侧边栏 ========== */
+        .sidebar { width:320px; background:#fff; border-radius:16px; box-shadow:var(--shadow); padding:20px; display:flex; flex-direction:column; gap:16px; flex-shrink:0; overflow-y:auto; max-height:820px; }
+        .sidebar-title { font-size:20px; font-weight:600; color:var(--title); }
+        .route-card { background:#f9fafc; border-radius:10px; padding:14px; display:flex; gap:12px; cursor:pointer; transition:all .3s; border:2px solid transparent; }
+        .route-card.active { border-color:var(--primary); background:#fff; }
+        .route-card img { width:70px; height:70px; border-radius:8px; object-fit:cover; }
+        .route-info { flex:1; display:flex; flex-direction:column; justify-content:space-between; }
+        .route-name { font-size:16px; font-weight:600; color:var(--title); }
+        .route-desc { font-size:13px; color:var(--body); margin-top:4px; }
+        .route-actions { display:flex; gap:8px; margin-top:8px; }
+        .action-btn { font-size:12px; padding:4px 10px; border-radius:6px; border:none; cursor:pointer; }
+        .action-btn.primary { background:var(--primary); color:#fff; }
+        .action-btn.secondary { background:#f0f2f5; color:var(--body); }
+
+        /* 地图图例 */
+        .map-legend { background:#f9fafc; border-radius:10px; padding:12px; border:1px solid #eee; }
+        .map-legend-title { font-size:13px; font-weight:600; color:var(--title); margin-bottom:8px; }
+        .legend-item { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:12px; color:var(--body); }
+        .legend-dot { width:14px; height:14px; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.3); flex-shrink:0; }
+        .legend-icon { width:22px; height:22px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+
+        /* ========== 盲盒抽签 ========== */
+        .blindbox-btn { width:100%; max-width:600px; height:72px; border:none; border-radius:20px; font-size:22px; font-weight:700; cursor:pointer; transition:all .3s; display:flex; align-items:center; justify-content:center; gap:12px; background:linear-gradient(135deg,#ff6b6b,#feca57,#48dbfb,#ff9ff3); background-size:300% 300%; animation:bb-grad 4s ease infinite; color:#fff; text-shadow:0 2px 8px rgba(0,0,0,.25); box-shadow:0 8px 32px rgba(255,107,107,.4), inset 0 1px 0 rgba(255,255,255,.4); position:relative; overflow:hidden; margin:10px auto 0; }
+        .blindbox-btn::before { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,.3) 0%,transparent 50%); pointer-events:none; }
+        .blindbox-btn:hover { transform:translateY(-4px) scale(1.03); box-shadow:0 16px 48px rgba(255,107,107,.55); }
+        .blindbox-btn:active { transform:scale(0.97); }
+        @keyframes bb-grad { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+        @keyframes bb-pulse { 0%{box-shadow:0 0 0 0 rgba(255,107,107,.6)} 70%{box-shadow:0 0 0 20px rgba(255,107,107,0)} 100%{box-shadow:0 0 0 0 rgba(255,107,107,0)} }
+        .blindbox-content { width:580px; max-height:90vh; background:#fff; border-radius:28px; padding:32px; position:relative; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.2); }
+        .blindbox-content::-webkit-scrollbar{display:none}
+        .bb-section { margin-bottom:22px; }
+        .bb-section h3 { font-size:16px; font-weight:600; color:var(--title); margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+        .bb-city-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+        .bb-city-card { padding:18px; border-radius:16px; border:3px solid #e0e0e0; background:#f9fafc; text-align:center; font-size:18px; font-weight:600; color:var(--body); cursor:pointer; transition:all .3s; user-select:none; }
+        .bb-city-card:hover { border-color:var(--primary); background:#f0f7ff; }
+        .bb-city-card.selected { border-color:var(--primary); background:var(--primary); color:#fff; box-shadow:0 4px 15px rgba(64,158,255,.35); }
+        .bb-day-selector { display:flex; gap:10px; }
+        .bb-day-btn { flex:1; padding:12px; border-radius:12px; border:2px solid #e0e0e0; background:#fff; font-size:16px; font-weight:600; color:var(--body); cursor:pointer; transition:all .3s; text-align:center; }
+        .bb-day-btn:hover { border-color:var(--primary); }
+        .bb-day-btn.active { border-color:#FF9800; background:#FFF3E0; color:#E65100; box-shadow:0 4px 12px rgba(255,152,0,.25); }
+        .bb-pref-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+        .bb-pref-card { padding:18px; border-radius:16px; border:3px solid #e0e0e0; background:#f9fafc; text-align:center; font-size:16px; font-weight:600; color:var(--body); cursor:pointer; transition:all .3s; user-select:none; }
+        .bb-pref-card:hover { border-color:#FF9800; }
+        .bb-pref-card.active { border-color:#FF9800; background:linear-gradient(135deg,#FFF3E0,#FFE0B2); color:#E65100; box-shadow:0 4px 15px rgba(255,152,0,.25); }
+        .bb-draw-btn { width:100%; padding:18px; border:none; border-radius:18px; font-size:22px; font-weight:700; cursor:pointer; transition:all .3s; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; box-shadow:0 8px 25px rgba(238,90,36,.4); animation:bb-pulse 2s infinite; display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:16px; }
+        .bb-draw-btn:hover { transform:translateY(-3px); box-shadow:0 12px 35px rgba(238,90,36,.5); }
+        .bb-draw-btn:disabled { opacity:.6; cursor:not-allowed; animation:none; transform:none; }
+        .bb-draw-btn.loading { animation:bb-shake .5s ease infinite; }
+        @keyframes bb-shake { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-5deg)} 75%{transform:rotate(5deg)} }
+        .bb-result-header { text-align:center; font-size:20px; font-weight:700; color:var(--title); padding:16px; background:linear-gradient(135deg,#fff9e6,#fff0e6); border-radius:16px; margin-bottom:16px; border:2px solid #ffd54f; }
+        .bb-sparkle { display:inline-block; animation:bb-spin 1.5s ease infinite; }
+        @keyframes bb-spin { 0%,100%{transform:scale(1) rotate(0deg)} 50%{transform:scale(1.2) rotate(180deg)} }
+        .bb-day-result { background:#f9fafc; border-radius:14px; padding:14px 16px; margin-bottom:12px; border-left:5px solid var(--primary); }
+        .bb-day-result h4 { font-size:15px; font-weight:600; color:var(--title); margin-bottom:8px; }
+        .bb-day-result .bb-spot-item { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:14px; color:var(--body); }
+        .bb-day-result .bb-spot-item .bb-idx { width:24px; height:24px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+        .bb-highlight { background:linear-gradient(135deg,#e8f5e9,#c8e6c9); border-radius:12px; padding:14px; margin:12px 0; }
+        .bb-surprise { background:linear-gradient(135deg,#fce4ec,#f8bbd0); border-radius:12px; padding:14px; margin:12px 0; }
+        .bb-ai-tip { background:linear-gradient(135deg,#e3f2fd,#bbdefb); border-radius:14px; padding:16px; margin:14px 0; font-size:13px; line-height:1.7; color:#1565c0; }
+        .bb-loading-anim { text-align:center; padding:40px 20px; }
+        .bb-loading-anim .bb-box { font-size:60px; animation:bb-box-bounce .8s ease infinite alternate; display:inline-block; }
+        @keyframes bb-box-bounce { 0%{transform:translateY(0) scale(1)} 100%{transform:translateY(-20px) scale(1.1)} }
+        .bb-loading-anim p { font-size:16px; color:#999; margin-top:12px; animation:bb-dots 1.5s ease infinite; }
+        @keyframes bb-dots { 0%{opacity:.4} 50%{opacity:1} 100%{opacity:.4} }
+
+        /* ========== 操作日志 & 客流管理 ========== */
+        .log-modal-box { width:760px; max-height:85vh; background:#fff; border-radius:24px; padding:28px; position:relative; overflow-y:auto; box-shadow:0 10px 40px rgba(0,0,0,.1); }
+        .log-filter-bar { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+        .log-filter-bar select, .log-filter-bar input { padding:8px 12px; border:1px solid #dcdfe6; border-radius:8px; font-size:13px; outline:none; }
+        .log-filter-bar select:focus, .log-filter-bar input:focus { border-color:var(--primary); }
+        .log-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .log-table th { background:#f5f7fa; padding:10px 12px; text-align:left; font-weight:600; color:var(--title); border-bottom:2px solid #e4e7ed; }
+        .log-table td { padding:10px 12px; border-bottom:1px solid #ebeef5; color:var(--body); }
+        .log-table tr:hover td { background:#f5f7fa; }
+        .log-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+        .log-badge.create { background:#e8f5e9; color:#2e7d32; }
+        .log-badge.update { background:#e3f2fd; color:#1565c0; }
+        .log-badge.delete { background:#ffebee; color:#c62828; }
+        .log-pagination { display:flex; justify-content:center; gap:6px; margin-top:16px; }
+        .log-page-btn { padding:6px 12px; border:1px solid #dcdfe6; border-radius:6px; background:#fff; cursor:pointer; font-size:12px; }
+        .log-page-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+        .log-page-btn:hover:not(.active) { border-color:var(--primary); }
+
+        .flow-modal-box { width:640px; max-height:85vh; background:#fff; border-radius:24px; padding:28px; position:relative; overflow-y:auto; }
+        .flow-item-card { background:#f9fafc; border-radius:12px; padding:14px; margin-bottom:10px; border:1px solid #eee; display:flex; align-items:center; gap:14px; }
+        .flow-item-name { font-weight:600; font-size:14px; min-width:120px; color:var(--title); }
+        .flow-item-inputs { display:flex; gap:8px; flex:1; flex-wrap:wrap; }
+        .flow-item-inputs input, .flow-item-inputs select { padding:6px 10px; border:1px solid #dcdfe6; border-radius:6px; font-size:12px; outline:none; }
+        .flow-item-inputs input:focus, .flow-item-inputs select:focus { border-color:var(--primary); }
+        .flow-status-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:4px; }
+        .flow-status-dot.red { background:#F44336; }
+        .flow-status-dot.orange { background:#FF9800; }
+        .flow-status-dot.green { background:#4CAF50; }
+
+        /* ========== 地图 ========== */
+        .map-container { flex:1; min-height:500px; background:#e5e3df; border-radius:16px; box-shadow:var(--shadow); overflow:hidden; position:relative; }
+        #map { width:100%; height:100%; }
+        #map-hint { display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.85); color:#fff; padding:16px 30px; border-radius:16px; z-index:1000; pointer-events:none; text-align:center; line-height:1.6; box-shadow:0 8px 25px rgba(0,0,0,.25); width:max-content; max-width:90%; }
+        .locate-btn { position:absolute; bottom:20px; right:20px; z-index:1000; background:#fff; padding:12px 18px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,.15); cursor:pointer; font-weight:bold; color:var(--primary); display:flex; align-items:center; gap:6px; transition:.3s; }
+        .map-type-controls { position:absolute; bottom:20px; left:20px; z-index:1000; display:flex; flex-direction:column; gap:8px; }
+        .map-type-btn { background:#fff; padding:10px 14px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.15); cursor:pointer; font-size:12px; color:#333; display:flex; align-items:center; gap:6px; transition:.3s; border:2px solid transparent; }
+        .map-type-btn:hover { border-color:var(--primary); }
+        .map-type-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+        .map-type-btn.heat { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%); color: #d32f2f; font-weight: bold; border: none; }
+        .map-type-btn.traffic-light { border-color:#FF9800; color:#E65100; font-weight:bold; }
+        .map-zoom-controls { position:absolute; right:20px; top:150px; z-index:1000; display:flex; flex-direction:column; gap:4px; }
+        .zoom-btn { width:36px; height:36px; background:#fff; border:none; border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,.15); cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; transition:.3s; }
+        .zoom-btn:hover { background:#f5f5f5; }
+        .user-marker { width:20px; height:20px; background:#409EFF; border:3px solid #fff; border-radius:50%; box-shadow:0 0 15px rgba(64,158,255,.9); animation:pulse 2s infinite; cursor:grab; }
+
+        /* ========== 右侧面板 ========== */
+        .right-panel { width:300px; display:flex; flex-direction:column; gap:16px; }
+        .panel-card { background:#fff; border-radius:16px; box-shadow:var(--shadow); padding:18px; transition:.3s; }
+        .panel-card.clickable { cursor:pointer; }
+        .panel-card.clickable:hover { transform:translateY(-2px); box-shadow:0 4px 15px rgba(0,0,0,.1); }
+        .panel-title { font-size:16px; font-weight:600; color:var(--title); margin-bottom:12px; }
+        .ugc-btn-card { background:#f0f7ff; border:2px dashed var(--primary); border-radius:16px; padding:15px; text-align:center; cursor:pointer; transition:.3s; }
+        .ugc-btn-card:hover { background:var(--primary); }
+        .ugc-btn-card:hover * { color:#fff !important; }
+
+        /* 天气侧栏 */
+        .weather-side-card { background:linear-gradient(135deg,#4facfe,#00f2fe); border-radius:16px; padding:16px; color:#fff; cursor:pointer; transition:.3s; box-shadow:var(--shadow); }
+        .weather-side-card:hover { transform:translateY(-2px); }
+        .weather-side-temp { font-size:36px; font-weight:bold; }
+        .weather-side-cond { font-size:15px; margin:4px 0; }
+        .weather-side-city { font-size:12px; opacity:.85; }
+        .weather-side-details { display:flex; gap:10px; margin-top:8px; font-size:11px; opacity:.9; flex-wrap:wrap; }
+        .weather-side-update { font-size:10px; opacity:.7; margin-top:6px; }
+
+        /* 预算估算小卡片 */
+        .budget-mini { background:linear-gradient(135deg,#f093fb,#f5576c); border-radius:16px; padding:16px; color:#fff; cursor:pointer; transition:.3s; box-shadow:var(--shadow); }
+        .budget-mini:hover { transform:translateY(-2px); }
+        .budget-mini-title { font-size:14px; font-weight:600; margin-bottom:6px; }
+        .budget-mini-amount { font-size:28px; font-weight:bold; }
+        .budget-mini-note { font-size:11px; opacity:.85; margin-top:4px; }
+
+        /* 打卡进度侧栏卡片 */
+        .checkin-mini { background:linear-gradient(135deg,#43e97b,#38f9d7); border-radius:16px; padding:16px; color:#fff; cursor:pointer; transition:.3s; box-shadow:var(--shadow); }
+        .checkin-mini:hover { transform:translateY(-2px); }
+        .checkin-progress-bar { height:6px; background:rgba(255,255,255,.3); border-radius:3px; margin:8px 0; overflow:hidden; }
+        .checkin-progress-fill { height:100%; background:#fff; border-radius:3px; transition:.5s; }
+
+        /* ========== 弹窗通用 ========== */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:2000; justify-content:center; align-items:flex-end; }
+        .modal-overlay.center { align-items:center; }
+        .close-modal { position:absolute; top:15px; right:20px; font-size:28px; cursor:pointer; color:#999; z-index:10; transition:.3s; }
+        .close-modal:hover { transform:scale(1.2); }
+        .form-content { width:380px; background:#fff; border-radius:20px; padding:30px; position:relative; box-shadow:0 10px 30px rgba(0,0,0,.2); }
+        .form-content h3 { color:var(--title); margin-bottom:20px; text-align:center; }
+        .form-input { width:100%; padding:12px; margin-bottom:15px; border:1px solid #dcdfe6; border-radius:8px; font-size:14px; outline:none; transition:.3s; font-family:inherit; }
+        .form-input:focus { border-color:var(--primary); }
+        .form-submit { width:100%; padding:12px; background:var(--primary); color:#fff; border:none; border-radius:8px; font-size:16px; cursor:pointer; transition:.3s; }
+        .form-submit:hover { opacity:.9; }
+
+        /* ========== 天气弹窗 ========== */
+        .weather-content { width:100%; max-width:420px; background:linear-gradient(135deg,#4facfe,#00f2fe); border-radius:30px 30px 0 0; padding:30px 25px 40px; color:#fff; position:relative; box-shadow:0 -10px 40px rgba(0,0,0,.2); max-height:85vh; overflow-y:auto; scrollbar-width:none; }
+        .weather-content::-webkit-scrollbar { display:none; }
+        .weather-header { text-align:center; margin-bottom:20px; }
+        .weather-header h2 { font-size:24px; letter-spacing:2px; margin-bottom:5px; }
+        .weather-header p { font-size:12px; opacity:.8; }
+        .weather-temp { font-size:70px; font-weight:bold; text-align:center; margin:10px 0; text-shadow:0 4px 15px rgba(0,0,0,.15); }
+        .weather-condition { text-align:center; font-size:22px; font-weight:500; margin-bottom:25px; }
+        .weather-details-grid { display:grid; grid-template-columns:1fr 1fr; gap:15px; background:rgba(255,255,255,.2); padding:20px; border-radius:20px; backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.3); }
+        .weather-item { display:flex; flex-direction:column; align-items:center; gap:6px; font-size:13px; opacity:.9; }
+        .weather-item span:last-child { font-weight:bold; font-size:16px; opacity:1; }
+        .outfit-section { background:rgba(255,255,255,.25); border-radius:20px; padding:14px; margin-top:16px; backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,.4); }
+        .outfit-title { font-size:15px; font-weight:600; margin-bottom:8px; }
+        .outfit-items { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+        .outfit-item { background:rgba(255,255,255,.9); color:#333; padding:6px 10px; border-radius:20px; font-size:12px; }
+        .outfit-preference { display:flex; gap:8px; margin-top:10px; }
+        .preference-btn { padding:4px 10px; border-radius:15px; border:1px solid rgba(255,255,255,.6); background:rgba(255,255,255,.2); color:#fff; font-size:12px; cursor:pointer; }
+        .preference-btn.active { background:#fff; color:#409EFF; }
+        .ai-outfit-section { background:rgba(255,255,255,.15); border-radius:20px; padding:14px; margin-top:12px; border:1px solid rgba(255,255,255,.3); }
+        .ai-outfit-title { font-size:14px; font-weight:600; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+        .ai-outfit-content { font-size:13px; line-height:1.7; white-space:pre-wrap; min-height:40px; }
+        .ai-outfit-btn { margin-top:10px; padding:8px 16px; background:rgba(255,255,255,.3); border:1px solid rgba(255,255,255,.5); color:#fff; border-radius:20px; font-size:13px; cursor:pointer; transition:.3s; width:100%; }
+        .ai-outfit-btn:hover { background:rgba(255,255,255,.5); }
+        .ai-outfit-btn:disabled { opacity:.6; cursor:not-allowed; }
+
+        /* ========== 路线分析弹窗 ========== */
+        .analysis-content { width:500px; max-height:80vh; background:#fff; border-radius:20px; padding:30px; position:relative; overflow-y:auto; }
+        .analysis-header { border-bottom:2px solid var(--primary); padding-bottom:15px; margin-bottom:20px; }
+        .analysis-title { font-size:22px; font-weight:bold; color:var(--title); }
+        .analysis-tags { font-size:13px; color:var(--primary); background:#e6f0ff; padding:4px 10px; border-radius:12px; display:inline-block; margin-top:8px; }
+        .analysis-tip-box { background:#fff8e6; border-left:4px solid #FFA500; padding:12px; border-radius:4px; font-size:14px; color:#666; margin-bottom:20px; line-height:1.6; }
+        .spot-item { padding:12px; border:1px solid #eee; border-radius:8px; margin-bottom:12px; transition:.3s; }
+        .spot-item:hover { border-color:var(--primary); box-shadow:0 4px 12px rgba(0,0,0,.05); }
+        .spot-name { font-weight:bold; font-size:16px; color:var(--title); display:flex; justify-content:space-between; }
+        .spot-desc { font-size:13px; color:#666; margin-top:6px; line-height:1.5; }
+
+        /* ========== 路线规划弹窗 ========== */
+        .route-options-panel { width:420px; max-height:85vh; background:#fff; border-radius:20px; padding:25px; position:relative; overflow-y:auto; }
+        .route-options-header { border-bottom:2px solid var(--primary); padding-bottom:12px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; }
+        .route-options-title { font-size:20px; font-weight:bold; color:var(--title); }
+        .transport-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+        .transport-tab { padding:10px 16px; border-radius:10px; border:2px solid #e0e0e0; background:#fff; cursor:pointer; font-size:14px; display:flex; align-items:center; gap:6px; transition:all .3s; }
+        .transport-tab:hover { border-color:var(--primary); }
+        .transport-tab.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+        .transport-tab.recommended { border-color:#4CAF50; background:#E8F5E9; }
+        .route-option-card { background:#f9fafc; border-radius:12px; padding:16px; margin-bottom:12px; border:2px solid transparent; transition:.3s; cursor:pointer; }
+        .route-option-card:hover { border-color:var(--primary); transform:translateY(-2px); }
+        .route-option-card.selected { border-color:var(--primary); background:#fff; box-shadow:0 4px 15px rgba(64,158,255,.2); }
+        .route-option-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+        .route-option-name { font-weight:600; font-size:16px; color:var(--title); display:flex; align-items:center; gap:8px; }
+        .route-option-badge { background:var(--primary); color:#fff; padding:2px 8px; border-radius:10px; font-size:11px; }
+        .route-option-badge.recommended { background:#4CAF50; }
+        .route-option-details { display:flex; gap:20px; font-size:13px; color:#666; }
+        .route-option-detail { display:flex; align-items:center; gap:4px; }
+        .ai-tip-box { background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border-radius:12px; padding:16px; margin-top:15px; }
+        .ai-tip-title { font-weight:600; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+        .ai-tip-content { font-size:13px; line-height:1.6; opacity:.95; }
+
+        /* ========== 预算估算弹窗 ========== */
+        .budget-modal-box { width:480px; max-height:82vh; background:#fff; border-radius:24px; padding:28px; position:relative; overflow-y:auto; }
+        .budget-modal-box::-webkit-scrollbar{display:none}
+        .budget-section { margin-bottom:18px; }
+        .budget-section-title { font-size:14px; font-weight:600; color:var(--title); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+        .budget-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .budget-item { background:#f9fafc; border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:4px; border:1px solid #eee; }
+        .budget-item-label { font-size:12px; color:#999; }
+        .budget-item-range { font-size:16px; font-weight:600; color:var(--title); }
+        .budget-item-note { font-size:11px; color:var(--primary); }
+        .budget-total-box { background:linear-gradient(135deg,#f093fb,#f5576c); color:#fff; border-radius:14px; padding:16px; text-align:center; }
+        .budget-total-label { font-size:13px; opacity:.9; }
+        .budget-total-amount { font-size:32px; font-weight:bold; margin:4px 0; }
+        .budget-total-note { font-size:12px; opacity:.8; }
+        .budget-days-selector { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+        .budget-day-btn { padding:6px 14px; border-radius:20px; border:2px solid #eee; background:#fff; font-size:13px; cursor:pointer; transition:.3s; }
+        .budget-day-btn.active { border-color:#f5576c; background:#fff0f5; color:#f5576c; font-weight:600; }
+        .budget-ai-tip { background:#f0f7ff; border-radius:12px; padding:12px; margin-top:14px; font-size:13px; color:#555; line-height:1.7; min-height:40px; }
+
+        /* ========== 打卡与成就弹窗 ========== */
+        .checkin-modal-box { width:520px; max-height:85vh; background:#fff; border-radius:24px; padding:30px; position:relative; overflow-y:auto; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        .checkin-modal-box::-webkit-scrollbar{display:none}
+        .checkin-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
+        .checkin-stat-card { background:#fff; border-radius:12px; padding:16px 12px; text-align:center; border:1px solid #eee; box-shadow:0 2px 8px rgba(0,0,0,0.02); }
+        .checkin-stat-num { font-size:30px; font-weight:bold; color:var(--primary); }
+        .checkin-stat-label { font-size:13px; color:#999; margin-top:4px; }
+
+        .achievement-panel { background:linear-gradient(135deg, #fff9e6, #fff0e6); border-radius:16px; padding:16px; margin-bottom:20px; border:1px solid #ffeba6; }
+        .achievement-title { font-size:14px; font-weight:600; color:#d48806; margin-bottom:12px; display:flex; align-items:center; gap:6px;}
+        .badge-grid { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px;}
+        .badge-item { background:#fff; border-radius:12px; padding:10px; text-align:center; min-width:80px; box-shadow:0 2px 6px rgba(212,136,6,.1); filter: grayscale(100%); opacity: 0.6; transition: 0.3s;}
+        .badge-item.unlocked { filter: grayscale(0%); opacity: 1; transform: translateY(-2px); box-shadow:0 4px 12px rgba(212,136,6,.2); }
+        .badge-icon { font-size:28px; margin-bottom:4px; }
+        .badge-name { font-size:11px; font-weight:bold; color:#d48806; }
+
+        .checkin-spot-list { display:flex; flex-direction:column; gap:12px; }
+        .checkin-spot-item { display:flex; align-items:center; gap:14px; padding:16px; border-radius:16px; border:1px solid #eee; background:#fff; transition:.3s; box-shadow:0 2px 8px rgba(0,0,0,0.02); }
+        .checkin-spot-item:hover { border-color:var(--primary); box-shadow:0 4px 12px rgba(64,158,255,0.1); }
+        .checkin-spot-item.done { background:#f9fdfa; border-color:#4CAF50; }
+        .checkin-spot-icon { width:44px; height:44px; border-radius:50%; background:#f5f7fa; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+        .checkin-spot-info { flex:1; }
+        .checkin-spot-name { font-size:16px; font-weight:600; color:var(--title); }
+        .checkin-spot-theme { font-size:13px; color:#999; margin-top:4px; }
+        .checkin-spot-time { font-size:12px; color:var(--nature); margin-top:4px; font-weight:500; }
+        .checkin-btn { padding:8px 22px; border-radius:20px; border:none; font-size:14px; font-weight:600; cursor:pointer; transition:.3s; }
+        .checkin-btn.todo { background:var(--primary); color:#fff; box-shadow:0 4px 10px rgba(64,158,255,0.3); }
+        .checkin-btn.todo:hover { transform:translateY(-2px); box-shadow:0 6px 15px rgba(64,158,255,0.4); }
+        .checkin-btn.done { background:#e8f5e9; color:var(--nature); pointer-events: none; }
+        .checkin-badge { background:#e8f5e9; color:var(--nature); border-radius:20px; padding:6px 16px; font-size:13px; font-weight:600; }
+
+        /* ========== 翻译与评分弹窗 ========== */
+        .translate-modal-box { width:440px; background:#fff; border-radius:24px; padding:28px; position:relative; }
+        .translate-tabs { display:flex; gap:8px; margin-bottom:16px; }
+        .translate-tab { padding:7px 16px; border-radius:20px; border:2px solid #eee; background:#fff; font-size:13px; cursor:pointer; transition:.3s; }
+        .translate-tab.active { border-color:var(--primary); background:#f0f7ff; color:var(--primary); font-weight:600; }
+        .phrase-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .phrase-card { background:#f9fafc; border-radius:10px; padding:10px; border:1px solid #eee; cursor:pointer; transition:.3s; }
+        .phrase-card:hover { border-color:var(--primary); background:#f0f7ff; }
+        .phrase-zh { font-size:13px; font-weight:600; color:var(--title); }
+        .phrase-pinyin { font-size:11px; color:var(--primary); margin:2px 0; }
+        .phrase-en { font-size:11px; color:#999; }
+        .translate-input-area { display:flex; gap:8px; margin-top:16px; }
+        .translate-result { background:#f0f7ff; border-radius:12px; padding:12px; margin-top:12px; font-size:13px; color:#333; line-height:1.7; min-height:50px; }
+
+        .rating-modal-box { width:440px; max-height:80vh; background:#fff; border-radius:24px; padding:28px; position:relative; overflow-y:auto; }
+        .rating-modal-box::-webkit-scrollbar{display:none}
+        .rating-spot-card { background:#f9fafc; border-radius:14px; padding:16px; margin-bottom:14px; border:1px solid #eee; }
+        .rating-spot-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+        .rating-spot-name2 { font-size:15px; font-weight:600; color:var(--title); }
+        .star-display { display:flex; gap:3px; }
+        .star { font-size:18px; cursor:pointer; transition:.2s; filter:grayscale(1); }
+        .star.active { filter:none; }
+        .star:hover { transform:scale(1.2); }
+        .rating-comment-input { width:100%; padding:8px 12px; border:1px solid #eee; border-radius:8px; font-size:13px; resize:none; outline:none; font-family:inherit; margin-top:8px; }
+        .rating-comment-input:focus { border-color:var(--primary); }
+        .rating-submit-btn { padding:6px 16px; background:var(--primary); color:#fff; border:none; border-radius:20px; font-size:12px; cursor:pointer; margin-top:8px; }
+        .rating-submitted { font-size:12px; color:var(--nature); background:#f0fff4; padding:6px 10px; border-radius:8px; margin-top:8px; display:none; }
+        .rating-previews { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .rating-preview-img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; border: 1px solid #eee; }
+        .upload-btn-mini { display: inline-block; padding: 6px 12px; background: #f0f7ff; border: 1px dashed #409EFF; color: #409EFF; border-radius: 8px; cursor: pointer; font-size: 12px; margin-top: 8px; }
+        .upload-btn-mini:hover { background: #e1f0ff; }
+
+        /* ========== AI 聊天悬浮 ========== */
+        #ai-chat-btn { position:fixed; bottom:30px; right:30px; z-index:3000; width:58px; height:58px; border-radius:50%; border:none; cursor:pointer; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; font-size:22px; box-shadow:0 4px 20px rgba(102,126,234,.55); transition:all .3s; display:flex; align-items:center; justify-content:center; }
+        #ai-chat-btn:hover { transform:scale(1.1); box-shadow:0 6px 28px rgba(102,126,234,.7); }
+        .chat-fab-badge { position:absolute; top:-4px; right:-4px; background:#ff4757; color:#fff; border-radius:10px; font-size:9px; padding:2px 5px; font-weight:700; white-space:nowrap; }
+
+        #ai-chat-panel { position:fixed; bottom:100px; right:30px; z-index:3000; width:370px; background:#fff; border-radius:22px; box-shadow:0 8px 40px rgba(0,0,0,.2); overflow:hidden; display:none; flex-direction:column; }
+        #ai-chat-panel.show { display:flex; animation:slideUp .3s ease; }
+        @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        .chat-header { background:linear-gradient(135deg,#667eea,#764ba2); padding:16px 20px; color:#fff; display:flex; align-items:center; justify-content:space-between; }
+        .chat-header-left { display:flex; align-items:center; gap:10px; }
+        .chat-avatar-wrap { width:36px; height:36px; background:rgba(255,255,255,.3); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; }
+        .chat-title { font-weight:600; font-size:15px; }
+        .chat-subtitle { font-size:11px; opacity:.8; }
+        .chat-close-btn { background:none; border:none; color:#fff; font-size:22px; cursor:pointer; opacity:.8; }
+        .chat-close-btn:hover { opacity:1; }
+        .chat-messages { height:300px; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; background:#f8f9ff; scroll-behavior: smooth;}
+        .chat-messages::-webkit-scrollbar { width:4px; }
+        .chat-messages::-webkit-scrollbar-thumb { background:#ddd; border-radius:2px; }
+        .chat-msg { display:flex; gap:8px; align-items:flex-end; max-width:92%; }
+        .chat-msg.user { flex-direction:row-reverse; align-self:flex-end; }
+        .msg-avatar { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+        .chat-msg.bot .msg-avatar { background:linear-gradient(135deg,#667eea,#764ba2); }
+        .chat-msg.user .msg-avatar { background:var(--primary); color:#fff; font-size:11px; font-weight:bold; }
+        .chat-bubble { padding:10px 13px; border-radius:16px; font-size:13px; line-height:1.6; max-width:250px; word-break:break-word; }
+        .chat-msg.bot .chat-bubble { background:#fff; color:#333; border-radius:4px 16px 16px 16px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+        .chat-msg.user .chat-bubble { background:var(--primary); color:#fff; border-radius:16px 4px 16px 16px; }
+        .chat-typing { display:flex; gap:4px; padding:10px 13px; }
+        .typing-dot { width:6px; height:6px; background:#bbb; border-radius:50%; animation:typing 1.2s infinite; }
+        .typing-dot:nth-child(2){animation-delay:.2s} .typing-dot:nth-child(3){animation-delay:.4s}
+        @keyframes typing { 0%,80%,100%{transform:scale(.8);opacity:.5} 40%{transform:scale(1.2);opacity:1} }
+        .chat-quick-btns { display:flex; gap:6px; padding:8px 14px; flex-wrap:wrap; background:#fff; border-top:1px solid #f0f0f0; }
+        .quick-btn { padding:5px 9px; background:#f0f7ff; border:1px solid #d0e8ff; color:var(--primary); border-radius:12px; font-size:11px; cursor:pointer; transition:.2s; white-space:nowrap; }
+        .quick-btn:hover { background:var(--primary); color:#fff; border-color:var(--primary); }
+        .chat-input-area { padding:10px 14px; background:#fff; border-top:1px solid #f0f0f0; display:flex; gap:8px; }
+        #chatInput { flex:1; padding:9px 13px; border:1px solid #e0e0e0; border-radius:20px; font-size:13px; outline:none; transition:.2s; resize:none; font-family:inherit; }
+        #chatInput:focus { border-color:var(--primary); }
+        #chatSendBtn { padding:9px 15px; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border:none; border-radius:20px; cursor:pointer; font-size:13px; white-space:nowrap; }
+        #chatSendBtn:disabled { opacity:.6; cursor:not-allowed; }
+    </style>
+</head>
+<body>
+<div class="bg-deco"></div>
+
+<header>
+    <div class="logo-area">
+        <div class="logo-icon">山</div>
+        <span class="logo-text">随心游</span>
+    </div>
+    <nav>
+        <a href="#" class="active">路线推荐</a>
+        <a onclick="openItinerary()">我的行程</a>
+        <a onclick="openCheckin()">游玩进度 <span class="ai-badge" id="checkinNavBadge">0</span></a>
+        <a onclick="openBudget()">💰 预算估算</a>
+        <a onclick="openTranslate()">🌐 旅行翻译</a>
+        <a onclick="openRating()">⭐ 景点评分</a>
+        <a onclick="openLogViewer()">📋 操作日志</a>
+        <a onclick="openFlowManager()">📊 客流管理</a>
+    </nav>
+    <button id="authBtn" style="background:var(--primary);color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;" onclick="openLogin()">登录 / 注册</button>
+</header>
+
+<section class="banner-section">
+    <h1 class="banner-title">🎯 选择旅游主题，智能规划路线</h1>
+    <div class="theme-buttons">
+        <button class="theme-btn humanity" onclick="openThemeModal('humanity')"><span>🏛️</span>慢享人文</button>
+        <button class="theme-btn nature" onclick="openThemeModal('nature')"><span>🌲</span>自然情趣</button>
+        <button class="theme-btn food" onclick="openThemeModal('food')"><span>🍜</span>美食漫游</button>
+        <button class="theme-btn casual" onclick="openThemeModal('casual')"><span>☕</span>轻量休闲</button>
+    </div>
+    <button class="blindbox-btn" onclick="openBlindBox()"><span>🎁</span> 盲盒抽签 · AI惊喜路线规划</button>
+</section>
+
+<div class="main-content">
+
+    <aside class="sidebar">
+        <div style="margin-bottom:12px;">
+            <input type="text" id="searchInput" placeholder="输入地名查询" style="width:100%; padding:8px; border-radius:6px; border:1px solid #ddd;">
+            <button onclick="searchLocation()" style="width:100%; margin-top:6px; padding:8px; background:#409eff; color:white; border:none; border-radius:6px; cursor:pointer;">查询景点</button>
+            <div id="searchResult" style="margin-top:8px; font-size:12px; max-height:180px; overflow-y:auto;"></div>
+        </div>
+        <div class="sidebar-header"><span class="sidebar-title">城市导览</span></div>
+        <div class="route-card active" id="btn-km" onclick="selectCity('kunming', this)">
+            <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200">
+            <div class="route-info">
+                <div><div class="route-name">昆明 · 滇池全景线</div><div class="route-desc" id="desc-km">已收录景点</div></div>
+                <div class="route-actions">
+                    <button class="action-btn primary" onclick="generateSmartRoute();event.stopPropagation();">一键规划</button>
+                    <button class="action-btn secondary" onclick="saveToItinerary('昆明全景路线');event.stopPropagation();">收藏</button>
+                </div>
+            </div>
+        </div>
+        <div class="route-card" id="btn-dl" onclick="selectCity('dali', this)">
+            <img src="https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=200">
+            <div class="route-info">
+                <div><div class="route-name">大理 · 苍洱全景线</div><div class="route-desc" id="desc-dl">已收录景点</div></div>
+                <div class="route-actions">
+                    <button class="action-btn primary" onclick="generateSmartRoute();event.stopPropagation();">一键规划</button>
+                    <button class="action-btn secondary" onclick="saveToItinerary('大理风花雪月路线');event.stopPropagation();">收藏</button>
+                </div>
+            </div>
+        </div>
+        <div class="route-card" id="btn-lj" onclick="selectCity('lijiang', this)">
+            <img src="https://images.unsplash.com/photo-1528105290366-6e2e80f9c345?w=200">
+            <div class="route-info">
+                <div><div class="route-name">丽江 · 玉龙雪山线</div><div class="route-desc" id="desc-lj">已收录景点</div></div>
+                <div class="route-actions">
+                    <button class="action-btn primary" onclick="generateSmartRoute();event.stopPropagation();">一键规划</button>
+                    <button class="action-btn secondary" onclick="saveToItinerary('丽江雪山古城路线');event.stopPropagation();">收藏</button>
+                </div>
+            </div>
+        </div>
+
+        <button style="width:100%;padding:10px;border-radius:8px;border:1px solid #dcdfe6;background:#fff;cursor:pointer;" onclick="filterByTheme('all'); clearMapOverlay();">清除规划，显示全量景点</button>
+
+        <div class="map-legend">
+            <div class="map-legend-title">🗺️ 地图标注说明</div>
+            <div class="legend-item"><div class="legend-icon" style="background:#FFF3E0;">🏛️</div><span><b style="color:#FFA500;">人文景点</b> — 橙色标签</span></div>
+            <div class="legend-item"><div class="legend-icon" style="background:#E8F5E9;">🌲</div><span><b style="color:#4CAF50;">自然景观</b> — 绿色标签</span></div>
+            <div class="legend-item"><div class="legend-icon" style="background:#FFEBEE;">🍜</div><span><b style="color:#F44336;">美食场所</b> — 红色标签</span></div>
+            <div class="legend-item"><div class="legend-icon" style="background:#E0F7FA;">☕</div><span><b style="color:#00BCD4;">休闲场所</b> — 青色标签</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#409EFF;"></div><span><b style="color:#409EFF;">我的位置</b> — 蓝色脉冲点</span></div>
+        </div>
+    </aside>
+
+    <main class="map-container">
+        <div id="map-hint">🎯 请在地图上点击新景点所在的具体位置</div>
+        <div class="locate-btn" onclick="locateUser()">📍 定位/校准我的位置</div>
+        <div class="map-type-controls">
+            <div class="map-type-btn active" data-type="normal" onclick="switchMapType('normal')"><span>🗺️</span> 常规</div>
+            <div class="map-type-btn" data-type="satellite" onclick="switchMapType('satellite')"><span>🛰️</span> 卫星</div>
+            <div class="map-type-btn" data-type="traffic" onclick="switchMapType('traffic')"><span>🚦</span> 交通</div>
+            <div class="map-type-btn" data-type="terrain3d" onclick="openTerrain3D()"><span>🏔️</span> 3D地形</div>
+            <div class="map-type-btn heat" data-type="heatmap" onclick="toggleHeatmap()"><span>🔥</span> 实时感知</div>
+            <div class="map-type-btn traffic-light" data-type="trafficLight" onclick="showTrafficStatus()"><span>🚥</span> 客流预警</div>
+        </div>
+        <div class="map-zoom-controls" style="top: 150px;">
+            <button class="zoom-btn" onclick="map.zoomIn()">+</button>
+            <button class="zoom-btn" onclick="map.zoomOut()">−</button>
+        </div>
+        <div id="map" style="width:100%;height:100%;"></div>
+        <div id="terrain3d-overlay" style="display:none;position:absolute;inset:0;z-index:500;background:#1a1a2e;">
+            <div id="terrain3d-map" style="width:100%;height:100%;"></div>
+            <div id="terrain3d-close" onclick="closeTerrain3D()" style="position:absolute;top:16px;right:16px;z-index:10;background:rgba(0,0,0,0.7);color:#fff;border:1px solid rgba(255,255,255,0.2);padding:10px 18px;border-radius:10px;cursor:pointer;font-size:14px;backdrop-filter:blur(8px);">✕ 关闭3D地形</div>
+            <div id="terrain3d-info" style="position:absolute;top:16px;left:16px;z-index:10;background:rgba(0,0,0,0.7);color:#fff;padding:14px 20px;border-radius:12px;font-size:13px;line-height:1.8;backdrop-filter:blur(8px);max-width:320px;border:1px solid rgba(255,255,255,0.1);"></div>
+        </div>
+    </main>
+
+    <aside class="right-panel">
+        <div class="ugc-btn-card" onclick="enableAddSpotMode()">
+            <div style="font-size:18px;font-weight:600;color:var(--primary);">+ 发现新大陆？</div>
+            <p style="font-size:12px;color:#666;margin-top:8px;">作为游客，一键添加你的私藏小众打卡地！</p>
+        </div>
+
+        <div class="weather-side-card" onclick="openWeather()">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                    <div class="weather-side-city" id="sideCity">📍 昆明市</div>
+                    <div class="weather-side-temp" id="sideTemp">--°C</div>
+                    <div class="weather-side-cond" id="sideCond">获取天气中...</div>
+                </div>
+                <div style="font-size:48px;line-height:1;" id="sideIcon">🌤️</div>
+            </div>
+            <div class="weather-side-details" id="sideDetails"><span>💧 --</span><span>🍃 --</span></div>
+            <div class="weather-side-update" id="sideUpdate">点击查看详情及穿搭建议 →</div>
+        </div>
+
+        <div class="checkin-mini" onclick="openCheckin()">
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px;">📍 景点游玩与成就</div>
+            <div style="font-size:22px;font-weight:bold;"><span id="checkinCount">0</span> / <span id="checkinTotal">8</span> 已游玩</div>
+            <div class="checkin-progress-bar"><div class="checkin-progress-fill" id="checkinProgressFill" style="width:0%"></div></div>
+            <div style="font-size:11px;opacity:.85;">点击查看详情 · 解锁专属旅行徽章</div>
+        </div>
+
+        <div class="budget-mini" onclick="openBudget()">
+            <div class="budget-mini-title">💰 今日预算估算</div>
+            <div class="budget-mini-amount" id="budgetMiniAmount">¥ ---</div>
+            <div class="budget-mini-note" id="budgetMiniNote">点击查看详细分项预算 →</div>
+        </div>
+
+        <div class="panel-card" style="padding:14px;">
+            <div style="font-size:13px;font-weight:600;color:var(--title);margin-bottom:8px;">🤖 DeepSeek AI随行助手</div>
+            <p style="font-size:12px;color:#999;line-height:1.6;">点击右下角 <b style="color:#764ba2;">✨</b> 按钮，向AI问规划、问天气、问穿搭！</p>
+        </div>
+    </aside>
+</div>
+
+<div class="modal-overlay" id="themeModal">
+    <div class="form-content" style="width:500px;max-height:80vh;overflow-y:auto;">
+        <span class="close-modal" onclick="closeModal('themeModal')">×</span>
+        <h3 id="modal-theme-title" style="margin-bottom:20px;color:var(--primary);text-align:center;">请选择景点</h3>
+        <div id="theme-spots-list"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="analysisModal">
+    <div class="analysis-content">
+        <span class="close-modal" onclick="closeModal('analysisModal')">×</span>
+        <div class="analysis-header">
+            <div class="analysis-title" id="analysis-title">路线解析</div>
+            <div class="analysis-tags" id="analysis-tags">标签：主题游</div>
+        </div>
+        <div class="analysis-tip-box" id="analysis-tip">💡 <b>行程建议与天气结合：</b><br><span id="analysis-tip-text"></span></div>
+        <h4 style="margin-bottom:12px;color:var(--title);">📍 途径核心景点讲解：</h4>
+        <div id="analysis-spots-container"></div>
+        <button class="form-submit" style="margin-top:20px;" onclick="closeAndRoute()">启动高德智能计算：规划路线</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="loginModal">
+    <div class="form-content">
+        <span class="close-modal" onclick="closeModal('loginModal')">×</span>
+        <h3>手机号快捷登录/注册</h3>
+        <p style="font-size:12px;color:#999;margin-bottom:20px;text-align:center;">未注册手机号验证后自动注册</p>
+        <input type="tel" id="phoneInput" class="form-input" placeholder="请输入11位手机号" maxlength="11">
+        <div style="display:flex;gap:10px;">
+            <input type="text" id="codeInput" class="form-input" placeholder="请输入4位验证码" maxlength="4" style="flex:1;">
+            <button id="sendCodeBtn" class="form-submit" style="width:120px;font-size:14px;background:#f0f2f5;color:#333;" onclick="sendAuthCode(this)">获取验证码</button>
+        </div>
+        <button class="form-submit" onclick="handleAuth()">马上登录</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="itineraryModal">
+    <div class="form-content" style="width:450px;">
+        <span class="close-modal" onclick="closeModal('itineraryModal')">×</span>
+        <h3>🚗 我的行程记录</h3>
+        <div id="itineraryList" style="max-height:400px;overflow-y:auto;margin-top:20px;"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="weatherModal" onclick="closeModalOnOverlay(event,'weatherModal')">
+    <div class="weather-content" onclick="event.stopPropagation()">
+        <span class="close-modal" style="color:#fff;top:15px;right:20px;" onclick="closeModal('weatherModal')">×</span>
+        <div class="weather-header">
+            <h2 id="m-city">昆明市</h2>
+            <p id="m-update-time">实时天气数据</p>
+        </div>
+        <div id="m-temp" class="weather-temp">--°C</div>
+        <div id="m-condition" class="weather-condition">☀️ 获取中...</div>
+        <div class="weather-details-grid">
+            <div class="weather-item"><span>💧 空气湿度</span><span id="m-hum">--%</span></div>
+            <div class="weather-item"><span>🍃 风向风力</span><span id="m-wind">--</span></div>
+            <div class="weather-item"><span>🌡️ 体感温度</span><span id="m-feels">--°C</span></div>
+            <div class="weather-item"><span>🌿 天气描述</span><span id="m-desc" style="font-size:13px;">--</span></div>
+        </div>
+        <div class="outfit-section" id="outfitSection">
+            <div class="outfit-title">👗 今日穿搭参考</div>
+            <div class="outfit-preference">
+                <button class="preference-btn active" onclick="setOutfitPreference('general',this)">通用</button>
+                <button class="preference-btn" onclick="setOutfitPreference('male',this)">男生</button>
+                <button class="preference-btn" onclick="setOutfitPreference('female',this)">女生</button>
+            </div>
+            <div class="outfit-items" id="outfitItems"></div>
+        </div>
+        <div class="ai-outfit-section">
+            <div class="ai-outfit-title">🤖 DeepSeek AI精准穿搭建议</div>
+            <div class="ai-outfit-content" id="aiOutfitContent">点击下方按钮，获取结合实时天气与当地地形的AI穿搭建议...</div>
+            <button class="ai-outfit-btn" id="aiOutfitBtn" onclick="getAIOutfitAdvice()">✨ 获取AI个性化建议</button>
+        </div>
+        <div id="outfitSceneTip" style="margin-top:12px;font-size:13px;color:rgba(255,255,255,.9);background:rgba(255,255,255,.2);padding:10px;border-radius:10px;"></div>
+        <button class="form-submit" style="margin-top:20px;background:rgba(255,255,255,.3);color:#fff;" onclick="closeModal('weatherModal')">我知道了</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="addSpotModal">
+    <div class="form-content">
+        <span class="close-modal" onclick="closeModal('addSpotModal')">×</span>
+        <h3>✨ 添加你的私藏景点</h3>
+        <p style="font-size:12px;color:#999;margin-bottom:15px;">坐标：<span id="display-coords"></span></p>
+        <input type="text" id="newSpotName" class="form-input" placeholder="输入景点名称 (如: 隐藏咖啡馆)">
+        <select id="newSpotTheme" class="form-input">
+            <option value="casual">轻量休闲</option>
+            <option value="humanity">慢享人文</option>
+            <option value="nature">自然情趣</option>
+            <option value="food">美食漫游</option>
+        </select>
+        <button class="form-submit" onclick="saveNewSpot()">发布至地图</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="routeOptionsModal">
+    <div class="route-options-panel">
+        <span class="close-modal" onclick="closeModal('routeOptionsModal')">×</span>
+        <div class="route-options-header">
+            <div class="route-options-title">🗺️ 智能路线规划</div>
+            <div style="font-size:12px;color:#999;" id="route-total-dist">总距离：计算中...</div>
+        </div>
+        <div class="transport-tabs" id="transportTabs"></div>
+        <div id="routeOptionsContainer"></div>
+        <div class="ai-tip-box"><div class="ai-tip-title">🤖 AI智能推荐</div><div class="ai-tip-content" id="aiTipContent">正在分析天气和距离...</div></div>
+        <button class="form-submit" style="margin-top:20px;" onclick="confirmRoute()">🚀 按此路线出发</button>
+    </div>
+</div>
+
+<div class="modal-overlay center" id="budgetModal" onclick="closeModalOnOverlay(event,'budgetModal')">
+    <div class="budget-modal-box" onclick="event.stopPropagation()">
+        <span class="close-modal" onclick="closeModal('budgetModal')">×</span>
+        <h3 style="margin-bottom:16px;text-align:center;">💰 旅行花费估算</h3>
+        <div style="margin-bottom:14px;">
+            <div style="font-size:13px;font-weight:600;color:var(--title);margin-bottom:8px;">行程天数</div>
+            <div class="budget-days-selector" id="budgetDaysBtns">
+                <button class="budget-day-btn active" onclick="setBudgetDays(1,this)">1天</button>
+                <button class="budget-day-btn" onclick="setBudgetDays(2,this)">2天</button>
+                <button class="budget-day-btn" onclick="setBudgetDays(3,this)">3天</button>
+                <button class="budget-day-btn" onclick="setBudgetDays(5,this)">5天</button>
+            </div>
+        </div>
+        <div class="budget-section"><div class="budget-section-title">🍽️ 餐饮费用</div><div class="budget-grid" id="budgetFoodGrid"></div></div>
+        <div class="budget-section"><div class="budget-section-title">🎫 景点门票</div><div class="budget-grid" id="budgetTicketGrid"></div></div>
+        <div class="budget-section"><div class="budget-section-title">🚗 交通费用</div><div class="budget-grid" id="budgetTransportGrid"></div></div>
+        <div class="budget-section"><div class="budget-section-title">🏨 住宿费用</div><div class="budget-grid" id="budgetHotelGrid"></div></div>
+        <div class="budget-total-box" id="budgetTotalBox">
+            <div class="budget-total-label">预计总花费（<span id="budgetDaysLabel">1</span>天）</div>
+            <div class="budget-total-amount" id="budgetTotalAmount">¥ ---</div>
+            <div class="budget-total-note">以上为人均参考，实际因消费习惯而异</div>
+        </div>
+        <div class="budget-ai-tip" id="budgetAiTip"><span style="color:#999;">🤖 点击下方按钮，让DeepSeek给出更个性化的预算建议...</span></div>
+        <button class="form-submit" style="margin-top:14px;" onclick="getAIBudgetAdvice()">🤖 DeepSeek AI优化预算方案</button>
+    </div>
+</div>
+
+<div class="modal-overlay center" id="checkinModal" onclick="closeModalOnOverlay(event,'checkinModal')">
+    <div class="checkin-modal-box" onclick="event.stopPropagation()">
+        <span class="close-modal" onclick="closeModal('checkinModal')">×</span>
+        <h3 style="margin-bottom:16px;text-align:center;">📍 景点游玩进度与成就</h3>
+
+        <div class="achievement-panel">
+            <div class="achievement-title">🏆 我的旅行成就</div>
+            <div class="badge-grid" id="badgeContainer">
+            </div>
+        </div>
+
+        <div class="checkin-stats" id="checkinStats"></div>
+        <div class="checkin-spot-list" id="checkinSpotList"></div>
+    </div>
+</div>
+
+<div class="modal-overlay center" id="translateModal" onclick="closeModalOnOverlay(event,'translateModal')">
+    <div class="translate-modal-box" onclick="event.stopPropagation()">
+        <span class="close-modal" onclick="closeModal('translateModal')">×</span>
+        <h3 style="margin-bottom:16px;text-align:center;">🌐 旅行翻译助手</h3>
+        <div class="translate-tabs">
+            <button class="translate-tab active" onclick="switchTranslateTab('phrase',this)">常用短句</button>
+            <button class="translate-tab" onclick="switchTranslateTab('custom',this)">自定义翻译</button>
+        </div>
+        <div id="translatePhrasePanel">
+            <div style="font-size:12px;color:#999;margin-bottom:8px;">点击短句可复制或播放发音</div>
+            <div class="phrase-grid" id="phraseGrid"></div>
+        </div>
+        <div id="translateCustomPanel" style="display:none;">
+            <div class="translate-input-area">
+                <input type="text" class="form-input" id="translateInput" placeholder="输入要翻译的内容..." style="margin-bottom:0;flex:1;">
+                <button class="form-submit" style="width:auto;padding:12px 18px;white-space:nowrap;" onclick="doTranslate()">翻译</button>
+            </div>
+            <div class="translate-result" id="translateResult">翻译结果将显示在这里...</div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay center" id="ratingModal" onclick="closeModalOnOverlay(event,'ratingModal')">
+    <div class="rating-modal-box" onclick="event.stopPropagation()">
+        <span class="close-modal" onclick="closeModal('ratingModal')">×</span>
+        <h3 style="margin-bottom:16px;text-align:center;">⭐ 景点评分与点评</h3>
+        <div id="ratingSpotList"></div>
+    </div>
+</div>
+
+<!-- ========== 盲盒抽签 ========== -->
+<div class="modal-overlay center" id="blindboxModal" onclick="closeModalOnOverlay(event,'blindboxModal')">
+    <div class="blindbox-content" onclick="event.stopPropagation()">
+        <span class="close-modal" onclick="closeModal('blindboxModal')">×</span>
+        <h2 style="text-align:center;margin-bottom:20px;font-size:24px;">🎁 盲盒抽签 · 惊喜路线</h2>
+
+        <div class="bb-section">
+            <h3>📍 选择游玩范围</h3>
+            <div class="bb-city-grid" id="bbCityGrid">
+                <label class="bb-city-card selected" data-city="kunming" onclick="toggleBBCity(this)">昆明</label>
+                <label class="bb-city-card selected" data-city="dali" onclick="toggleBBCity(this)">大理</label>
+                <label class="bb-city-card selected" data-city="lijiang" onclick="toggleBBCity(this)">丽江</label>
+            </div>
+            <p style="font-size:12px;color:#999;margin-top:6px;">💡 可多选，至少选1个城市</p>
+        </div>
+
+        <div class="bb-section">
+            <h3>📅 选择游玩天数</h3>
+            <div class="bb-day-selector" id="bbDaySelector">
+                <button class="bb-day-btn active" onclick="setBBDay(this)">1天</button>
+                <button class="bb-day-btn" onclick="setBBDay(this)">2天</button>
+                <button class="bb-day-btn" onclick="setBBDay(this)">3天</button>
+                <button class="bb-day-btn" onclick="setBBDay(this)">4天</button>
+                <button class="bb-day-btn" onclick="setBBDay(this)">5天</button>
+            </div>
+        </div>
+
+        <div class="bb-section">
+            <h3>🎯 选择偏好（选一个）</h3>
+            <div class="bb-pref-grid" id="bbPrefGrid">
+                <label class="bb-pref-card active" data-pref="balanced" onclick="setBBPref(this)">⚖️ 均衡体验</label>
+                <label class="bb-pref-card" data-pref="nature" onclick="setBBPref(this)">🌲 自然风光</label>
+                <label class="bb-pref-card" data-pref="humanity" onclick="setBBPref(this)">🏛️ 人文历史</label>
+                <label class="bb-pref-card" data-pref="food" onclick="setBBPref(this)">🍜 美食之旅</label>
+            </div>
+        </div>
+
+        <button class="bb-draw-btn" id="bbDrawBtn" onclick="drawBlindBox()">
+            🎁 抽盲盒！生成惊喜路线
+        </button>
+
+        <div id="bbResult" style="display:none;">
+            <div class="bb-result-header">
+                <span class="bb-sparkle">✨</span>
+                恭喜抽中！你的专属路线
+                <span class="bb-sparkle">✨</span>
+            </div>
+            <div id="bbResultContent"></div>
+            <div class="bb-highlight" id="bbHighlight" style="display:none;"></div>
+            <div class="bb-surprise" id="bbSurprise" style="display:none;"></div>
+            <div class="bb-ai-tip" id="bbAiTip" style="display:none;"></div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="form-submit" onclick="confirmBlindBoxRoute()">🗺️ 在地图上查看路线</button>
+                <button class="form-submit" style="background:#FF9800;" onclick="drawBlindBox()">🔄 再抽一次</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 操作日志查看器 ========== -->
+<div class="modal-overlay center" id="logModal" onclick="closeModalOnOverlay(event,'logModal')">
+    <div class="log-modal-box" onclick="event.stopPropagation()">
+        <span class="close-modal" onclick="closeModal('logModal')">×</span>
+        <h3 style="margin-bottom:16px;text-align:center;">📋 操作日志</h3>
+        <div class="log-filter-bar">
+            <select id="logFilterAction" onchange="loadLogs(1)">
+                <option value="">全部操作</option>
+                <option value="CREATE">新增</option>
+                <option value="UPDATE">更新</option>
+                <option value="DELETE">删除</option>
+            </select>
+            <select id="logFilterTarget" onchange="loadLogs(1)">
+                <option value="">全部类型</option>
+                <option value="LOCATION">景点</option>
+                <option value="FLOW_DATA">客流数据</option>
+            </select>
+            <input type="text" id="logFilterKeyword" placeholder="关键词搜索..." onkeydown="if(event.key==='Enter')loadLogs(1)">
+            <button class="form-submit" style="width:auto;padding:8px 16px;" onclick="loadLogs(1)">查询</button>
+            <button class="form-submit" style="width:auto;padding:8px 16px;background:#67C23A;" onclick="refreshLogs()">🔄 刷新</button>
+        </div>
+        <div id="logTableContainer" style="min-height:200px;">
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th style="width:80px;">时间</th>
+                        <th style="width:70px;">操作</th>
+                        <th style="width:70px;">类型</th>
+                        <th style="width:120px;">目标</th>
+                        <th style="width:60px;">操作人</th>
+                        <th>详情</th>
+                    </tr>
+                </thead>
+                <tbody id="logTableBody">
+                    <tr><td colspan="6" style="text-align:center;color:#999;padding:30px;">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="log-pagination" id="logPagination"></div>
+    </div>
+</div>
+
+<!-- ========== 客流管理面板 ========== -->
+<div class="modal-overlay center" id="flowModal" onclick="closeModalOnOverlay(event,'flowModal')">
+    <div class="flow-modal-box" onclick="event.stopPropagation()">
+        <span class="close-modal" onclick="closeModal('flowModal')">×</span>
+        <h3 style="margin-bottom:16px;text-align:center;">📊 实时客流管理</h3>
+        <p style="font-size:12px;color:#999;margin-bottom:16px;">手动更新各景点当前客流数据，更新后热力图和客流预警将实时反映最新状态</p>
+        <div id="flowManagerContent">
+            <div style="text-align:center;color:#999;padding:20px;">加载中...</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px;">
+            <button class="form-submit" onclick="submitFlowUpdates()">💾 批量保存</button>
+            <button class="form-submit" style="background:#67C23A;" onclick="refreshFlowData()">🔄 刷新数据</button>
+        </div>
+    </div>
+</div>
+
+<button id="ai-chat-btn" onclick="toggleChatPanel()" title="DeepSeek AI旅行助手"><span>✨</span><div class="chat-fab-badge">DeepSeek</div></button>
+
+<div id="ai-chat-panel">
+    <div class="chat-header">
+        <div class="chat-header-left">
+            <div class="chat-avatar-wrap">🤖</div>
+            <div>
+                <div class="chat-title">随心游 · DeepSeek AI助手</div>
+                <div class="chat-subtitle">AI 智能路线编排与问答</div>
+            </div>
+        </div>
+        <button class="chat-close-btn" onclick="toggleChatPanel()">×</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+        <div class="chat-msg bot">
+            <div class="msg-avatar">🤖</div>
+            <div class="chat-bubble">你好！我是随心游DeepSeek AI助手 ✨<br>我可以帮你：<br>• 查询景点推荐<br>• 分析天气穿搭<br>• <b>🔥 帮你智能编排多日游行程</b><br>• 估算旅行预算<br><br>你可以直接对我说：“帮我规划昆明2日游行程”</div>
+        </div>
+    </div>
+    <div class="chat-quick-btns">
+        <button class="quick-btn" onclick="sendQuickMsg('帮我规划昆明3天游玩行程')">🗺️ 多日行程规划</button>
+        <button class="quick-btn" onclick="sendQuickMsg('当前天气如何，适合出游吗？')">🌤️ 天气</button>
+        <button class="quick-btn" onclick="sendQuickMsg('今天穿什么合适？')">👗 穿搭</button>
+        <button class="quick-btn" onclick="sendQuickMsg('大理有哪些特色小吃？')">🍜 美食</button>
+    </div>
+    <div class="chat-input-area">
+        <textarea id="chatInput" placeholder="输入规划X日行程，或问我问题..." rows="1" onkeydown="handleChatKey(event)"></textarea>
+        <button id="chatSendBtn" onclick="sendChatMessage()">发送</button>
+    </div>
+</div>
+
+<script>
+// =======================================================
+// [模块 1]: 核心配置与 DeepSeek AI 直连通道
+// =======================================================
+const DEEPSEEK_API_KEY = 'sk-08a7231303524fd5a5235805ffad7a48';
+const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
+
+if (window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+}
+
+let voiceGuideSpot = null;
+
+async function callDeepSeek(history, systemPrompt) {
+    const msgs = [];
+    if (systemPrompt) msgs.push({ role: 'system', content: systemPrompt });
+    msgs.push(...history);
+    try {
+        const response = await fetch(DEEPSEEK_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "deepseek-chat",
+                messages: msgs
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0].message.content;
+    } catch (e) {
+        console.error("AI 接口调用失败:", e);
+        return '⚠️ 抱歉，直接连接DeepSeek大模型失败，请检查网络或确认 API Key 是否有效。';
+    }
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+// =======================================================
+// [新增特性辅助库]: 历史客流数据与时空算法
+// =======================================================
+// 建立历史客流特征库 (数组代表 0:00 到 23:00 每小时的热度指数 0-100)
+const historicalTrafficData = {
+    "崇圣寺三塔": [5,5,5,5,5,10,20,40,65,85,95,90,80,85,90,75,60,40,25,15,10,5,5,5],
+    "大理古城":   [10,5,5,5,5,5,15,30,50,60,70,75,80,85,90,85,95,100,100,90,70,40,20,10],
+    "苍山洗马潭索道": [0,0,0,0,0,0,10,30,60,85,95,100,90,80,60,40,20,5,0,0,0,0,0,0],
+    "南强街巷":   [5,5,5,5,5,5,10,20,40,55,70,85,90,80,75,80,95,100,95,85,60,30,15,5],
+    "石林风景区": [5,5,5,5,5,10,30,60,85,95,100,90,85,85,80,70,50,30,15,10,5,5,5,5],
+    "斗南花市":   [3,3,3,3,3,5,15,30,45,55,65,70,75,80,85,90,95,100,95,85,65,40,20,8],
+    "金马碧鸡坊": [2,2,2,2,2,3,8,15,30,45,60,70,75,80,85,90,95,100,100,90,75,50,25,10],
+    "翠湖公园":   [2,2,2,2,2,5,15,35,55,70,80,85,85,80,75,70,65,60,55,45,35,20,10,5],
+    "海埂大坝":   [2,2,2,2,2,3,8,20,35,50,60,70,75,80,85,80,70,55,40,30,20,10,5,3],
+    "喜洲古镇":   [5,5,5,5,5,8,20,40,60,75,85,90,95,100,95,90,80,65,45,30,20,10,5,5],
+    "双廊艺术小镇": [5,5,5,5,5,5,10,25,45,60,70,80,85,90,95,95,100,95,80,60,40,20,10,5],
+    "龙龛码头":   [2,2,2,2,2,3,10,25,45,60,72,80,82,80,75,70,60,50,38,25,15,8,4,2],
+    "洱海生态廊道": [3,3,3,3,3,5,12,28,48,62,75,82,85,82,78,72,62,50,38,25,15,8,4,3],
+    "理想邦":     [2,2,2,2,2,3,8,18,32,48,60,70,78,82,85,88,90,85,72,55,35,18,8,3],
+    "玉龙雪山":   [0,0,0,0,0,5,15,35,65,85,100,95,90,85,80,70,55,40,25,10,5,0,0,0],
+    "丽江古城":   [5,5,5,5,5,8,20,40,55,70,80,85,90,95,100,95,90,85,80,70,55,35,20,10],
+    "束河古镇":   [3,3,3,3,3,5,12,25,45,60,75,85,90,95,100,90,80,65,50,35,20,10,5,3],
+    "泸沽湖":     [2,2,2,2,2,5,15,35,60,80,95,100,95,90,85,75,60,45,30,15,8,5,3,2],
+    "虎跳峡":     [2,2,2,2,2,5,15,35,60,85,95,100,95,90,85,75,60,40,25,12,5,3,2,2],
+    "default":    [5,5,5,5,5,5,15,25,45,65,80,85,85,80,75,60,45,30,20,15,10,5,5,5]
+};
+
+// Box-Muller 变换，生成正态分布(高斯分布)随机数用于KDE模拟
+function randomGaussian() {
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+// =======================================================
+// [模块 2]: 高德地图引擎初始化与覆盖物管理
+// =======================================================
+let map, satelliteLayer, trafficLayer, currentMapType = 'normal';
+let districtPolygons = [];
+let districtLabels = [];
+let aiContextSpot = null;
+let heatmapLayer = null;
+
+// 🔥 新增：全局图层生命周期管理器 (负责保存与清理)
+let bufferCircle = null;
+let bufferMarkers = [];
+let trafficStatusMarkers = [];
+let multiDayRouteLines = [];
+let multiDayRouteMarkers = [];
+
+// 一键清理地图上的动态覆盖物
+function clearMapOverlay() {
+    // 1. 清除缓冲区圆圈
+    if (bufferCircle) { map.remove(bufferCircle); bufferCircle = null; }
+    // 2. 清除缓冲区内的高亮标记
+    if (bufferMarkers.length) { map.remove(bufferMarkers); bufferMarkers = []; }
+    // 3. 清除规划的单日路线
+    if (fallbackPolyline) { map.remove(fallbackPolyline); fallbackPolyline = null; }
+    Object.values(routeControls).forEach(c => { if(c && c.clear) c.clear(); });
+    // 4. 清除多日游生成的标记和连线
+    if (multiDayRouteLines.length) { map.remove(multiDayRouteLines); multiDayRouteLines = []; }
+    if (multiDayRouteMarkers.length) { map.remove(multiDayRouteMarkers); multiDayRouteMarkers = []; }
+    // 5. 清除红绿灯
+    if (trafficStatusMarkers.length) {
+        map.remove(trafficStatusMarkers); trafficStatusMarkers = [];
+        const btn = document.querySelector('.map-type-btn.traffic-light');
+        if(btn) { btn.style.background = '#fff'; btn.style.color = '#E65100'; btn.classList.remove('active'); }
+    }
+    document.getElementById('map-hint').style.display = 'none';
+}
+
+function drawDistricts(cityName) {
+    if (!map) return;
+    map.remove(districtPolygons);
+    map.remove(districtLabels);
+    districtPolygons = [];
+    districtLabels = [];
+
+    AMap.plugin('AMap.DistrictSearch', function() {
+        var districtSearch = new AMap.DistrictSearch({ subdistrict: 1, extensions: 'all', level: 'city' });
+        districtSearch.search(cityName, function(status, result) {
+            if (status === 'complete' && result.districtList.length > 0) {
+                var districts = result.districtList[0].districtList;
+                if (!districts) return;
+                var colors = ['#e1f5fe', '#e8f5e9', '#fff3e0', '#fce4ec', '#f3e5f5', '#e0f2f1', '#fffde7', '#f5f5f5'];
+
+                districts.forEach(function(dist, index) {
+                    var subSearch = new AMap.DistrictSearch({ subdistrict: 0, extensions: 'all', level: 'district' });
+                    subSearch.search(dist.adcode, function(subStatus, subResult) {
+                        if (subStatus === 'complete' && subResult.districtList.length > 0) {
+                            var boundaries = subResult.districtList[0].boundaries;
+                            if (boundaries) {
+                                var color = colors[index % colors.length];
+                                for (var i = 0, l = boundaries.length; i < l; i++) {
+                                    var polygon = new AMap.Polygon({
+                                        path: boundaries[i], fillOpacity: 0.15, fillColor: color,
+                                        strokeColor: '#409EFF', strokeWeight: 2, strokeStyle: 'dashed',
+                                        strokeDasharray: [10, 5], bubble: true
+                                    });
+                                    polygon.setMap(map);
+                                    districtPolygons.push(polygon);
+                                }
+                                var text = new AMap.Text({
+                                    text: dist.name, position: subResult.districtList[0].center, bubble: true,
+                                    style: { 'background-color': 'rgba(255, 255, 255, 0.85)', 'border': '1px solid #c0c4cc',
+                                        'border-radius': '20px', 'font-size': '12px', 'color': '#303133',
+                                        'padding': '4px 10px', 'font-weight': 'bold', 'box-shadow': '0 2px 6px rgba(0,0,0,0.1)' }
+                                });
+                                text.setMap(map);
+                                districtLabels.push(text);
+                            }
+                        }
+                    });
+                });
+            }
+        });
+    });
+}
+
+function initMap() {
+    map = new AMap.Map('map', {
+        zoom: 10, center: [102.71, 25.04], viewMode: '3D', pitch: 40, terrain: true, showLabel: false
+    });
+    satelliteLayer = new AMap.TileLayer.Satellite();
+    trafficLayer = new AMap.TileLayer.Traffic({ zIndex:10 });
+
+    AMap.plugin(['AMap.ControlBar'], function() {
+        map.addControl(new AMap.ControlBar({ position: { right: '20px', top: '20px' }, showZoomBar: false, showControlButton: true }));
+    });
+}
+try { initMap(); } catch(e) {
+    document.getElementById('map').innerHTML = '<div style="padding:40px;text-align:center;color:#F44336;background:#fff;height:100%;display:flex;flex-direction:column;justify-content:center;"><h2>⚠️ 高德地图加载失败</h2><p>请检查网络连接或刷新页面。</p></div>';
+}
+
+function switchMapType(type) {
+    if (!map) return;
+    if (type !== 'heatmap' && currentMapType === 'heatmap') toggleHeatmap();
+    currentMapType = type;
+    map.remove([satelliteLayer, trafficLayer]);
+    if (type === 'satellite') map.add(satelliteLayer);
+    else if (type === 'traffic') map.add(trafficLayer);
+    else if (type === 'hybrid') { map.add(satelliteLayer); map.add(trafficLayer); }
+
+    document.querySelectorAll('.map-type-btn:not(.heat):not(.traffic-light)').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+}
+
+// =======================================================
+// 实时客流数据获取 (优先从后端获取，失败则回退模拟)
+// =======================================================
+async function fetchRealTimeFlowData() {
+    try {
+        const resp = await fetch('http://127.0.0.1:5000/api/visitor-flow/current');
+        if (!resp.ok) throw new Error('API不可用');
+        const data = await resp.json();
+        if (data && data.length > 0) return data;
+        return null;
+    } catch (e) {
+        console.warn('实时客流API不可用，回退模拟数据:', e.message);
+        return null;
+    }
+}
+
+function getFlowFreshness(updateTime) {
+    if (!updateTime) return { level: 'none', text: '无数据', color: '#999' };
+    const now = new Date();
+    const updated = new Date(updateTime.replace(' ', 'T'));
+    const diffMs = now - updated;
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin <= 1) return { level: 'fresh', text: '刚刚更新', color: '#4CAF50' };
+    if (diffMin <= 5) return { level: 'recent', text: `${diffMin}分钟前更新`, color: '#FF9800' };
+    return { level: 'stale', text: `${diffMin}分钟前更新`, color: '#F44336' };
+}
+
+// =======================================================
+// 🔥 实时感知热力图 (优先使用后端实时客流数据)
+// =======================================================
+function toggleHeatmap() {
+    if (!map) return;
+    const btn = document.querySelector('.map-type-btn.heat');
+
+    if (!heatmapLayer) {
+        AMap.plugin(["AMap.HeatMap"], function() {
+            heatmapLayer = new AMap.HeatMap(map, {
+                radius: 50,
+                opacity: [0.2, 0.9],
+                gradient:{
+                    0.1: 'rgb(0, 0, 255)',
+                    0.3: 'rgb(0, 255, 0)',
+                    0.6: 'rgb(255, 255, 0)',
+                    0.9: 'rgb(255, 0, 0)'
+                }
+            });
+
+            // 优先使用实时数据
+            fetchRealTimeFlowData().then(flowData => {
+                let heatData = [];
+                let dataSource = 'simulated';
+                let dataTime = null;
+                let maxCount = 100;
+
+                if (flowData && flowData.length > 0) {
+                    // 使用实时客流数据
+                    dataSource = 'realtime';
+                    const flowMap = {};
+                    flowData.forEach(f => { flowMap[f.spot_name] = f; });
+
+                    cityData[currentCity].spots.forEach(spot => {
+                        const flow = flowMap[spot.name];
+                        if (flow) {
+                            const count = flow.visitor_count || 0;
+                            if (count > 0) {
+                                // 将 visitor_count 映射为热力权重
+                                const weight = Math.min(count, 100);
+                                heatData.push({ lng: spot.pos[0], lat: spot.pos[1], count: weight });
+                                if (count > maxCount) maxCount = count;
+                            }
+                            if (flow.update_time) dataTime = flow.update_time;
+                        }
+                    });
+
+                    // 如果实时数据为空，回退模拟
+                    if (heatData.length === 0) dataSource = 'simulated';
+                }
+
+                if (dataSource === 'simulated') {
+                    // 回退到模拟数据
+                    const currentHour = new Date().getHours();
+                    cityData[currentCity].spots.forEach(spot => {
+                        const historyCurve = historicalTrafficData[spot.name] || historicalTrafficData["default"];
+                        const currentIntensity = historyCurve[currentHour];
+                        if (currentIntensity < 10) return;
+                        const pointCount = Math.floor(currentIntensity / 1.5);
+                        for(let i=0; i<pointCount; i++) {
+                            const dx = randomGaussian() * 0.005;
+                            const dy = randomGaussian() * 0.005;
+                            const distance = Math.sqrt(dx*dx + dy*dy);
+                            const weight = currentIntensity * Math.max(0.1, (1 - distance / 0.015));
+                            heatData.push({ lng: spot.pos[0] + dx, lat: spot.pos[1] + dy, count: weight });
+                        }
+                    });
+                }
+
+                heatmapLayer.setDataSet({ data: heatData, max: maxCount });
+                btn.classList.add('active');
+                currentMapType = 'heatmap';
+
+                const hint = document.getElementById('map-hint');
+                if (dataSource === 'realtime') {
+                    const freshness = getFlowFreshness(dataTime);
+                    hint.innerHTML = `🔥 <b>实时感知</b>：基于后端实时客流数据 · <span style="color:${freshness.color};">●</span> ${freshness.text}`;
+                    hint.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+                } else {
+                    const currentHour = new Date().getHours();
+                    hint.innerHTML = `⚠️ <b>模拟估算</b>：暂无实时数据，显示 ${currentHour}:00 模拟客流`;
+                    hint.style.background = 'linear-gradient(135deg, #FF512F, #DD2476)';
+                }
+                hint.style.display = 'block';
+                setTimeout(() => { hint.style.display = 'none'; }, 5000);
+            });
+        });
+    } else {
+        if (btn.classList.contains('active')) { heatmapLayer.hide(); btn.classList.remove('active'); currentMapType = 'normal'; }
+        else { heatmapLayer.show(); btn.classList.add('active'); currentMapType = 'heatmap'; }
+    }
+}
+
+// 🚥 客流避峰预警红绿灯 (优先使用实时客流数据)
+function showTrafficStatus() {
+    if (!map) return;
+    const btn = document.querySelector('.map-type-btn.traffic-light');
+
+    if (trafficStatusMarkers.length > 0) {
+        map.remove(trafficStatusMarkers);
+        trafficStatusMarkers = [];
+        btn.style.background = '#fff'; btn.style.color = '#E65100';
+        btn.classList.remove('active');
+        return;
+    }
+
+    btn.style.background = '#FFF3E0'; btn.style.color = '#F44336'; btn.classList.add('active');
+
+    // 优先使用实时数据
+    fetchRealTimeFlowData().then(flowData => {
+        let dataSource = 'simulated';
+        let dataTime = null;
+        const flowMap = {};
+        if (flowData && flowData.length > 0) {
+            dataSource = 'realtime';
+            flowData.forEach(f => { flowMap[f.spot_name] = f; if (f.update_time) dataTime = f.update_time; });
+        }
+
+        const currentHour = new Date().getHours();
+
+        cityData[currentCity].spots.forEach(spot => {
+            let currentIntensity, statusColor, statusText, pulseAnim = "";
+
+            if (dataSource === 'realtime' && flowMap[spot.name]) {
+                // 使用实时客流数据
+                const flow = flowMap[spot.name];
+                currentIntensity = flow.visitor_count || 0;
+                statusText = flow.status_text || '未知';
+                const level = flow.congestion_level || 1;
+                if (level >= 4 || currentIntensity >= 80) { statusColor = "#F44336"; pulseAnim = "animation: pulse-red 1.5s infinite;"; }
+                else if (level >= 3 || currentIntensity >= 50) { statusColor = "#FF9800"; }
+                else { statusColor = "#4CAF50"; }
+            } else {
+                // 回退模拟
+                const historyCurve = historicalTrafficData[spot.name] || historicalTrafficData["default"];
+                currentIntensity = historyCurve[currentHour];
+                if (currentIntensity >= 80) { statusColor = "#F44336"; statusText = "拥挤"; pulseAnim = "animation: pulse-red 1.5s infinite;"; }
+                else if (currentIntensity >= 50) { statusColor = "#FF9800"; statusText = "适中"; }
+                else { statusColor = "#4CAF50"; statusText = "空闲"; }
+            }
+
+            const statusHtml = `
+                <div style="position:relative; display:flex; flex-direction:column; align-items:center;">
+                    <div style="background:rgba(255,255,255,0.95); padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold; color:${statusColor}; border:1px solid ${statusColor}; margin-bottom:4px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+                        ${statusText} ${currentIntensity}
+                    </div>
+                    <div style="width:14px; height:14px; background:${statusColor}; border:2px solid #fff; border-radius:50%; box-shadow:0 0 8px ${statusColor}; ${pulseAnim}"></div>
+                </div>
+            `;
+            let marker = new AMap.Marker({ position: spot.pos, content: statusHtml, offset: new AMap.Pixel(15, -60), zIndex: 999 });
+            trafficStatusMarkers.push(marker);
+        });
+
+        map.add(trafficStatusMarkers);
+        const hint = document.getElementById('map-hint');
+        if (dataSource === 'realtime') {
+            const freshness = getFlowFreshness(dataTime);
+            hint.innerHTML = `🚥 <b>实时客流预警</b>：基于实时数据 · <span style="color:${freshness.color};">●</span> ${freshness.text}`;
+        } else {
+            hint.innerHTML = `🚥 已载入历史客流模型，目前展示各景点 <b>${currentHour}:00</b> 的拥挤状况预警 (模拟)`;
+        }
+        hint.style.display = 'block'; hint.style.background = 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)';
+        setTimeout(() => { hint.style.display = 'none'; }, 4000);
+    });
+}
+
+// 🎯 新增：空间智能分析波纹扫描 (Buffer Analysis)
+function analyzeBuffer(spotName) {
+    const spot = cityData[currentCity].spots.find(s => s.name === spotName);
+    if (!spot) return;
+    const center = new AMap.LngLat(spot.pos[0], spot.pos[1]);
+
+    if (bufferCircle) { map.remove(bufferCircle); bufferCircle = null; }
+    if (bufferMarkers.length) { map.remove(bufferMarkers); bufferMarkers = []; }
+    if (infoWindow) infoWindow.close();
+
+    bufferCircle = new AMap.Circle({
+        center: center, radius: 0, strokeColor: "#409EFF", strokeWeight: 2,
+        fillColor: "#409EFF", fillOpacity: 0.15, zIndex: 50
+    });
+    map.add(bufferCircle);
+    map.setFitView([bufferCircle]);
+
+    let r = 0;
+    const anim = setInterval(() => {
+        r += 25;
+        bufferCircle.setRadius(r);
+        if (r >= 500) {
+            clearInterval(anim);
+            showBufferResults(center);
+        }
+    }, 30);
+}
+
+function showBufferResults(center) {
+    let foundCount = 0;
+    cityData[currentCity].spots.forEach(s => {
+        if (s.theme !== 'food' && s.theme !== 'casual') return; // 只筛选吃喝玩乐
+        const pos = new AMap.LngLat(s.pos[0], s.pos[1]);
+        const dist = AMap.GeometryUtil.distance(center, pos);
+        if (dist <= 500) {
+            foundCount++;
+            let m = new AMap.Marker({
+                position: pos,
+                content: `<div style="width:30px;height:30px;background:rgba(64,158,255,0.2);border-radius:50%;border:2px solid #409EFF;animation:ripple 1.5s infinite;"></div>`,
+                offset: new AMap.Pixel(-15,-15), zIndex: 49
+            });
+            bufferMarkers.push(m);
+        }
+    });
+    if (bufferMarkers.length) map.add(bufferMarkers);
+
+    const hint = document.getElementById('map-hint');
+    hint.innerHTML = `✅ 空间扫描完成！在 500 米缓冲区内发现 <b>${foundCount}</b> 个餐饮与休闲设施，已高亮显示。`;
+    hint.style.display = 'block'; hint.style.background = '#4CAF50';
+    setTimeout(() => { hint.style.display = 'none'; }, 4000);
+}
+
+
+// =======================================================
+// [模块 3]: 3D 地形与 MapLibre 控制
+// =======================================================
+let terrainMap3D = null;
+let terrainOverlayOpen = false;
+
+function gcj02ToWgs84(lng, lat) {
+    const a=6378245.0, ee=0.00669342162296594323;
+    function tL(x,y){let r=-100+2*x+3*y+.2*y*y+.1*x*y+.2*Math.sqrt(Math.abs(x));r+=(20*Math.sin(6*x*Math.PI)+20*Math.sin(2*x*Math.PI))*2/3;r+=(20*Math.sin(y*Math.PI)+40*Math.sin(y/3*Math.PI))*2/3;r+=(160*Math.sin(y/12*Math.PI)+320*Math.sin(y*Math.PI/30))*2/3;return r;}
+    function tG(x,y){let r=300+x+2*y+.1*x*x+.1*x*y+.1*Math.sqrt(Math.abs(x));r+=(20*Math.sin(6*x*Math.PI)+20*Math.sin(2*x*Math.PI))*2/3;r+=(20*Math.sin(x*Math.PI)+40*Math.sin(x/3*Math.PI))*2/3;r+=(150*Math.sin(x/12*Math.PI)+300*Math.sin(x/30*Math.PI))*2/3;return r;}
+    let dl=tL(lng-105,lat-35), dn=tG(lng-105,lat-35);
+    const rl=lat/180*Math.PI, m=Math.sin(rl), sm=1-ee*m*m, sq=Math.sqrt(sm);
+    dl=(dl*180)/((a*(1-ee))/(sm*sq)*Math.PI); dn=(dn*180)/(a/sq*Math.cos(rl)*Math.PI);
+    return [lng-dn, lat-dl];
+}
+
+const TERRAIN_SPOTS = [
+    { id:'cangshan', name:'苍山', city:'大理', center:gcj02ToWgs84(100.10,25.70), elevation:4122, zoom:12,
+      desc:'苍山十九峰十八溪，主峰马龙峰4122米。苍山洱海是大理标志性景观。',
+      routes:[
+        {name:'洗马潭登顶线',diff:'困难',dist:'12.5km',time:'6-8小时',color:'#FF4444',
+         coords:[gcj02ToWgs84(100.0979,25.8517),gcj02ToWgs84(100.0960,25.8480),gcj02ToWgs84(100.0940,25.8440),gcj02ToWgs84(100.0920,25.8400),gcj02ToWgs84(100.0900,25.8360),gcj02ToWgs84(100.0880,25.8320),gcj02ToWgs84(100.0860,25.8280),gcj02ToWgs84(100.0820,25.8200),gcj02ToWgs84(100.0800,25.8160)]}
+      ]},
+    { id:'jiaozi', name:'轿子山', city:'昆明', center:gcj02ToWgs84(102.8597,26.0963), elevation:4223, zoom:12,
+      desc:'滇中第一高峰，冬季赏雪胜地，春季高山杜鹃漫山遍野。',
+      routes:[
+        {name:'轿顶登顶线',diff:'困难',dist:'8km',time:'5-6小时',color:'#FF4444',
+         coords:[gcj02ToWgs84(102.8500,26.1050),gcj02ToWgs84(102.8540,26.1010),gcj02ToWgs84(102.8580,26.0970),gcj02ToWgs84(102.8597,26.0950)]}
+      ]},
+    { id:'dagu', name:'大牯牛山', city:'昆明', center:gcj02ToWgs84(103.15,25.95), elevation:4017, zoom:12,
+      desc:'昆明东川区最高峰，以壮观云海日出闻名，春季万亩杜鹃盛开。',
+      routes:[
+        {name:'主峰穿越线',diff:'中等',dist:'10km',time:'5-6小时',color:'#FFA500',
+         coords:[gcj02ToWgs84(103.1300,25.9600),gcj02ToWgs84(103.1400,25.9560),gcj02ToWgs84(103.1460,25.9520),gcj02ToWgs84(103.1500,25.9500)]}
+      ]}
+];
+
+function openTerrain3D(spotId) {
+    const overlay = document.getElementById('terrain3d-overlay');
+    overlay.style.display = 'block';
+    terrainOverlayOpen = true;
+
+    const spot = spotId ? TERRAIN_SPOTS.find(s=>s.id===spotId) : TERRAIN_SPOTS[0];
+    if (!spot) return;
+
+    const info = document.getElementById('terrain3d-info');
+    info.innerHTML = `<div class="loading-text" style="color:#aaa;">⏳ 加载3D地形中...</div>`;
+
+    if (!terrainMap3D) {
+        terrainMap3D = new maplibregl.Map({
+            container: 'terrain3d-map',
+            style: {
+                version: 8,
+                sources: {
+                    'satellite': { type:'raster', tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize:256, attribution:'© Esri' },
+                    'terrain-dem': { type:'raster-dem', encoding:'terrarium', tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], tileSize:256, maxzoom:15 }
+                },
+                layers: [{ id:'satellite', type:'raster', source:'satellite' }],
+                terrain: { source:'terrain-dem', exaggeration:2 }
+            },
+            center: spot.center, zoom: spot.zoom, pitch:65, bearing:30, antialias:true
+        });
+        terrainMap3D.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'bottom-right');
+
+        setTimeout(() => { if (terrainMap3D) terrainMap3D.resize(); }, 300);
+
+        terrainMap3D.on('load', () => {
+            terrainMap3D.setTerrain({ source:'terrain-dem', exaggeration:2 });
+            try {
+                terrainMap3D.setSky({'sky-type':'atmosphere','sky-atmosphere-sun':[0,90],'sky-atmosphere-sun-intensity':15});
+                terrainMap3D.setFog({'range':[0.5,10],'color':'rgba(186,210,235,0.5)','horizon-blend':0.1});
+            } catch(e) {}
+            renderTerrain3DSpots();
+            renderTerrain3DRoutes(spot);
+            showTerrainInfo(spot);
+        });
+    } else {
+        terrainMap3D.resize();
+        terrainMap3D.jumpTo({ center:spot.center, zoom:spot.zoom, pitch:65, bearing:30 });
+        clearTerrain3DRoutes();
+        renderTerrain3DRoutes(spot);
+        showTerrainInfo(spot);
+    }
+    document.querySelectorAll('.map-type-btn').forEach(b=>b.classList.toggle('active', b.dataset.type==='terrain3d'));
+}
+
+function showTerrainInfo(spot) {
+    document.getElementById('terrain3d-info').innerHTML = `<b>⛰️ ${spot.name}</b>（${spot.city} · 海拔${spot.elevation}m）<br>${spot.desc}<br><br>` + spot.routes.map(r=>`<span style="color:${r.color}">●</span> ${r.name}　${r.diff}　${r.dist}　${r.time}`).join('<br>');
+}
+
+function closeTerrain3D() {
+    document.getElementById('terrain3d-overlay').style.display = 'none';
+    terrainOverlayOpen = false;
+    document.querySelectorAll('.map-type-btn').forEach(b=>b.classList.toggle('active', b.dataset.type==='normal'));
+}
+
+function renderTerrain3DSpots() {
+    TERRAIN_SPOTS.forEach(spot => {
+        const el = document.createElement('div');
+        el.innerHTML = `<div style="background:linear-gradient(135deg,rgba(76,175,80,0.9),rgba(33,150,243,0.9));color:#fff;padding:5px 12px;border-radius:18px;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.4);cursor:pointer;">⛰️ ${spot.name} ${spot.elevation}m</div>`;
+        new maplibregl.Marker({element:el, anchor:'bottom'}).setLngLat(spot.center).addTo(terrainMap3D);
+        el.addEventListener('click', () => openTerrain3D(spot.id));
+    });
+}
+
+function renderTerrain3DRoutes(spot) {
+    spot.routes.forEach(r => {
+        const sid = `tr-${spot.id}-${r.name}`;
+        terrainMap3D.addSource(sid, {type:'geojson', data:{type:'Feature', geometry:{type:'LineString', coordinates:r.coords}}});
+        terrainMap3D.addLayer({id:sid+'-h', type:'line', source:sid, layout:{'line-join':'round','line-cap':'round'}, paint:{'line-color':'#fff','line-width':9,'line-opacity':0.35}});
+        terrainMap3D.addLayer({id:sid, type:'line', source:sid, layout:{'line-join':'round','line-cap':'round'}, paint:{'line-color':r.color,'line-width':5,'line-opacity':0.9}});
+    });
+}
+
+function clearTerrain3DRoutes() {
+    if (!terrainMap3D) return;
+    const layers = terrainMap3D.getStyle().layers || [];
+    const sources = terrainMap3D.getStyle().sources || {};
+    layers.forEach(l => { if (l.id.startsWith('tr-')) terrainMap3D.removeLayer(l.id); });
+    Object.keys(sources).forEach(s => { if (s.startsWith('tr-')) terrainMap3D.removeSource(s); });
+}
+
+// =======================================================
+// [模块 4]: 业务数据硬编码
+// =======================================================
+function getMarkerIcon(theme, name) {
+    const n = name.length > 5 ? name.substring(0,4)+'…' : name;
+    const configs = {
+        humanity: { color:'#FFA500', grd:'linear-gradient(135deg,#FFA500,#FF8C00)', emoji:'🏛️', dot:'border-radius:50%' },
+        nature:   { color:'#4CAF50', grd:'linear-gradient(135deg,#4CAF50,#388E3C)', emoji:'🌲', dot:'border-radius:3px;transform:rotate(45deg)' },
+        food:     { color:'#F44336', grd:'linear-gradient(135deg,#F44336,#C62828)', emoji:'🍜', dot:'border-radius:2px' },
+        casual:   { color:'#00BCD4', grd:'linear-gradient(135deg,#00BCD4,#00838F)', emoji:'☕', dot:'border-radius:3px;transform:rotate(45deg)' }
+    };
+    const c = configs[theme] || configs.casual;
+    return `<div style="position:relative;text-align:center;filter:drop-shadow(0 3px 6px rgba(0,0,0,.35));">
+        <div style="background:${c.grd};color:#fff;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:bold;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.25);border:1.5px solid rgba(255,255,255,.6);">${c.emoji} ${n}</div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${c.color};margin:0 auto;"></div>
+        <div style="width:11px;height:11px;background:${c.color};border:2.5px solid #fff;margin:3px auto;box-shadow:0 1px 4px rgba(0,0,0,.3);${c.dot}"></div>
+    </div>`;
+}
+
+const cityData = {
+    kunming: {
+        name:'昆明', amapCityCode:'530100',
+        pos:[102.71,25.04],
+        terrain:'云贵高原，海拔约1891米，四周滇池盆地，高原季风气候，早晚温差大，春城四季如春，紫外线较强',
+        budgetBase:{ food:[30,80], ticket:[0,50], transport:[20,60], hotel:[80,300] },
+        spots:[
+            {name:'石林风景区', pos:[103.3263,24.8126], theme:'nature', desc:'5A级景区，世界喀斯特地貌精华，奇峰异石令人叹为观止。'},
+            {name:'世博园', pos:[102.7634,25.0682], theme:'nature', desc:'5A级景区，荟萃世界各地园林园艺精品的大型主题公园。'},
+            {name:'云南民族村', pos:[102.6617,24.9818], theme:'humanity', desc:'4A级景区，一站式体验云南26个少数民族的建筑与原生态文化。'},
+            {name:'西山龙门', pos:[102.6300,24.9566], theme:'nature', desc:'4A级景区，滇池西岸绝壁之上的道教石窟，可俯瞰滇池全景。'},
+            {name:'昆明金殿', pos:[102.7667,25.0921], theme:'humanity', desc:'4A级景区，中国最大的纯铜铸殿，吴三桂与陈圆圆的历史遗迹。'},
+            {name:'官渡古镇', pos:[102.7533,24.9561], theme:'humanity', desc:'4A级景区，历史悠久的古镇，拥有少林寺和特色官渡粑粑。'},
+            {name:'轿子雪山', pos:[102.8597,26.0963], theme:'nature', desc:'4A级景区，滇中第一高峰，冬季赏雪、春季观杜鹃的胜地。'},
+            {name:'云南野生动物园', pos:[102.7915,25.1051], theme:'nature', desc:'4A级景区，原生态野生动物放养观赏区。'},
+            {name:'大观公园', pos:[102.6738,25.0252], theme:'humanity', desc:'4A级景区，以孙髯翁的“天下第一长联”闻名的古典园林。'},
+            {name:'宜良九乡', pos:[103.3400,25.0396], theme:'nature', desc:'4A级景区，溶洞奇观与地下峡谷风光交相辉映，电影《神话》取景地。'},
+            {name:'安宁温泉', pos:[102.4343,24.9601], theme:'casual', desc:'4A级景区，天下第一汤，休闲疗养胜地。'},
+            {name:'阳宗海度假区', pos:[103.0167,24.9083], theme:'casual', desc:'4A级景区，高原湖泊旅游度假区，适合水上运动与高尔夫。'},
+            {name:'昆明植物园', pos:[102.7486,25.1396], theme:'nature', desc:'3A级景区，著名的枫叶大道和丰富的珍稀植物群落。'},
+            {name:'黑龙潭公园', pos:[102.7471,25.1387], theme:'humanity', desc:'3A级景区，以唐梅宋柏明茶闻名的道教名胜。'},
+            {name:'捞鱼河湿地', pos:[102.76793,24.82318],theme:'nature', desc:'3A级景区，滇池东岸生态湿地，以水杉林和观鸟长廊著称。'},
+            {name:'融创海世界', pos:[102.6136,25.0205], theme:'casual', desc:'3A级景区，集海洋生物展示与游乐设施于一体。'},
+            {name:'福保半岛', pos:[102.7340,24.9190], theme:'nature', desc:'滇池东南岸人造白沙滩，棕榈树和湖景构成热带风情。'},
+            {name:'海埂大坝', pos:[102.65082,24.973585],theme:'nature', desc:'冬季观赏西伯利亚红嘴鸥的绝佳位置。'},
+            {name:'陆军讲武堂', pos:[102.700641,25.047874],theme:'humanity',desc:'中国近现代著名军校之一，法式建筑。'},
+            {name:'翠湖公园', pos:[102.703525,25.048635],theme:'humanity',desc:'汪曾祺笔下的昆明眼，周边遍布咖啡馆。'},
+            {name:'海晏村', pos:[102.76998,24.80921], theme:'casual', desc:'滇池东岸最后一个古渔村。'},
+            {name:'大牯牛山', pos:[103.15,25.95], theme:'nature', desc:'昆明东川区最高峰，海拔4017米，以壮观云海日出闻名。'},
+            {name:'篆新农贸', pos:[102.71,25.05], theme:'food', desc:'昆明网红菜市场，汇集各地奇珍异果。'},
+            {name:'南强街巷', pos:[102.712891,25.035298],theme:'food', desc:'昆明百年历史文化街区，美食云集。'},
+            {name:'斗南花市', pos:[102.7549,24.8806], theme:'casual', desc:'亚洲最大的鲜切花交易市场，"花都"昆明的名片。'},
+            {name:'金马碧鸡坊', pos:[102.7089,25.0366], theme:'humanity', desc:'昆明标志性地标，金马碧鸡交相辉映的牌坊群。'},
+            {name:'圆通山动物园', pos:[102.7174,25.0627], theme:'nature', desc:'百年动物园，春季樱花烂漫，昆明赏樱胜地。'},
+            {name:'云南大学', pos:[102.7062,25.0554], theme:'humanity', desc:'百年名校，会泽院、至公堂等历史建筑与银杏道交相辉映。'},
+            {name:'教场中路蓝花楹', pos:[102.6723,25.0721], theme:'nature', desc:'每年四月紫色花海笼罩整条街道，网红打卡拍照圣地。'},
+            {name:'文明街', pos:[102.7103,25.0418], theme:'food', desc:'昆明老街片区，聚集了福照楼等老字号滇菜馆。'},
+            {name:'昆明瀑布公园', pos:[102.7470,25.1612], theme:'nature', desc:'亚洲最大人工瀑布，气势恢宏的滨水景观带。'},
+            {name:'七彩云南欢乐世界', pos:[102.5987,24.7929], theme:'casual', desc:'大型主题乐园，融合古滇文化元素，适合亲子游玩。'},
+            {name:'东川红土地', pos:[103.0951,26.0932], theme:'nature', desc:'世界最壮观的红色土壤地貌，摄影爱好者的天堂。'},
+            {name:'昆明老街', pos:[102.7098,25.0395], theme:'humanity', desc:'保存完好的清末民初历史街区，感受老昆明的市井烟火。'},
+            {name:'斗南湿地公园', pos:[102.7715,24.8876], theme:'nature', desc:'滇池东岸生态湿地，花海与湖光相映成趣。'},
+            {name:'金殿后山农家乐', pos:[102.7833,25.1021], theme:'food', desc:'昆明本地人最爱的农家美食聚集地，柴火鸡、花椒鸡一绝。'},
+            {name:'草海隧道公园', pos:[102.6415,25.0298], theme:'nature', desc:'滇池草海段的生态公园，日落时分分外美丽。'}
+        ]
+    },
+    dali: {
+        name:'大理', amapCityCode:'532900',
+        pos:[100.18,25.75],
+        terrain:'苍山洱海之间，海拔约2090米，西有苍山雪峰（最高4122米），东有洱海，立体气候显著，温差大，日照强',
+        budgetBase:{ food:[25,70], ticket:[0,80], transport:[15,50], hotel:[100,400] },
+        spots:[
+            {name:'崇圣寺三塔', pos:[100.1444,25.7088], theme:'humanity', desc:'5A级景区，大理国时期的皇家寺院，苍山脚下的标志性建筑。'},
+            {name:'大理古城', pos:[100.1675,25.6917], theme:'humanity',desc:'4A级景区，南诏国和大理国都城，见证千年的风花雪月。'},
+            {name:'苍山洗马潭索道', pos:[100.0979,25.8517], theme:'nature', desc:'4A级景区，直达海拔3900米，感受一山有四季的立体气候。'},
+            {name:'蝴蝶泉', pos:[100.0827,25.8453], theme:'nature', desc:'4A级景区，白族爱情圣地，泉水清澈，周围绿树成荫。'},
+            {name:'南诏风情岛', pos:[100.1916,25.9189], theme:'casual', desc:'4A级景区，洱海三岛之一，可全方位观赏苍洱风光。'},
+            {name:'宾川鸡足山', pos:[100.3804,25.9685], theme:'humanity', desc:'4A级景区，佛教迦叶尊者道场，东南亚著名的佛教朝圣地。'},
+            {name:'沙溪古镇', pos:[99.8515,26.3197], theme:'humanity', desc:'4A级景区，茶马古道上唯一幸存的古集市，极具古朴宁静的美感。'},
+            {name:'双廊艺术小镇', pos:[100.1894,25.9223], theme:'casual', desc:'4A级景区，拥有最贴近洱海的客栈群，杨丽萍太阳宫所在地。'},
+            {name:'祥云水目山', pos:[100.5755,25.3211], theme:'humanity', desc:'4A级景区，云南禅宗第一寺。'},
+            {name:'大理地热国', pos:[99.9329,26.1158], theme:'casual', desc:'4A级景区，天然硫磺露天温泉度假胜地。'},
+            {name:'大理西湖', pos:[100.0416,26.0028], theme:'nature', desc:'3A级景区，苍山脚下的高原明珠，保留着原生态的白族水乡风貌。'},
+            {name:'剑川老君山', pos:[99.7891,26.5401], theme:'nature', desc:'3A级景区，丹霞地貌奇观与高山杜鹃林的绝佳融合。'},
+            {name:'云龙宝丰古镇', pos:[99.1672,25.9081], theme:'humanity', desc:'3A级景区，蕴藏着深厚的盐文化历史底蕴。'},
+            {name:'弥渡小河淌水', pos:[100.4921,25.3245], theme:'casual', desc:'3A级景区，世界名曲《小河淌水》的故乡。'},
+            {name:'飘香酒馆', pos:[100.1679,25.6952], theme:'food', desc:'古城内人气宝藏私房菜，特色酸辣鱼必点。'},
+            {name:'心邸咖啡', pos:[100.14863,25.77041],theme:'casual', desc:'生态廊道网红咖啡馆，直面洱海日出。'},
+            {name:'喜洲古镇', pos:[100.1253,25.8962], theme:'humanity',desc:'白族民居活化石，转角楼和麦田绝佳拍摄地。'},
+            {name:'复兴路美食', pos:[100.1651,25.6896], theme:'food', desc:'大理古城主干道，烤乳扇、凉鸡米线一网打尽。'},
+            {name:'龙龛码头', pos:[100.1852,25.6975], theme:'nature', desc:'洱海西岸最佳日出观赏点，清晨霞光映照苍山雪。'},
+            {name:'才村码头', pos:[100.2148,25.7168], theme:'nature', desc:'洱海生态廊道起点，骑行观海的热门打卡地。'},
+            {name:'洱海生态廊道', pos:[100.2200,25.7100], theme:'nature', desc:'全长129公里的环湖生态步道，骑行、徒步、观鸟皆宜。'},
+            {name:'理想邦', pos:[100.2095,25.9350], theme:'casual', desc:'地中海风格白色建筑群，面朝洱海的"圣托里尼"分尼。'},
+            {name:'文笔村', pos:[100.2208,25.9485], theme:'casual', desc:'半山上的文艺村落，俯瞰洱海全景的绝佳位置。'},
+            {name:'鹿卧山', pos:[100.2250,25.9600], theme:'nature', desc:'洱海东岸小众观景点，山谷静谧，洱海风光一览无余。'},
+            {name:'大理大学', pos:[100.1200,25.6000], theme:'humanity', desc:'背靠苍山面朝洱海的最美大学，樱花季不输武大。'},
+            {name:'周城扎染', pos:[100.1138,25.8300], theme:'humanity', desc:'白族扎染之乡，可亲手体验千年扎染技艺。'},
+            {name:'巍山古城', pos:[100.2975,25.2282], theme:'humanity', desc:'南诏国发源地，比大理古城更古朴宁静的活化石古城。'},
+            {name:'诺邓古村', pos:[99.3600,25.9200], theme:'humanity', desc:'千年白族古村，《舌尖上的中国》诺邓火腿拍摄地。'},
+            {name:'天龙八部影视城', pos:[100.1178,25.6195], theme:'casual', desc:'金庸武侠主题影视城，穿越到大理国段氏王朝。'},
+            {name:'者摩山', pos:[100.2833,25.5167], theme:'nature', desc:'大理新晋网红山，云海日落和星空露营地。'},
+            {name:'大理床单厂艺术区', pos:[100.1695,25.6800], theme:'casual', desc:'废弃床单厂改造的文艺街区，独立书店、手作工坊云集。'},
+            {name:'三塔倒影公园', pos:[100.1531,25.7021], theme:'nature', desc:'拍摄崇圣寺三塔倒影的最佳机位，湖面如镜。'}
+        ]
+    },
+    lijiang: {
+        name:'丽江', amapCityCode:'530700',
+        pos:[100.22,26.87],
+        terrain:'青藏高原与云贵高原过渡带，海拔约2400米，玉龙雪山脚下，金沙江畔，紫外线强，昼夜温差大，干燥少雨',
+        budgetBase:{ food:[30,75], ticket:[0,100], transport:[20,80], hotel:[120,500] },
+        spots:[
+            {name:'玉龙雪山', pos:[100.1926,27.0140], theme:'nature', desc:'5A级景区，纳西族神山，主峰扇子陡海拔5596米，冰川公园壮丽无比。'},
+            {name:'丽江古城', pos:[100.2345,26.8753], theme:'humanity', desc:'5A级景区，世界文化遗产，小桥流水的纳西族千年古城。'},
+            {name:'束河古镇', pos:[100.2000,26.9000], theme:'humanity', desc:'4A级景区，比大研古城更清净的茶马古道重镇，青龙桥流水潺潺。'},
+            {name:'黑龙潭公园', pos:[100.2235,26.8832], theme:'nature', desc:'4A级景区，玉龙雪山倒影最佳拍摄地，得月楼与雪山相映成趣。'},
+            {name:'木府', pos:[100.2331,26.8702], theme:'humanity', desc:'4A级景区，丽江土司衙门，仿紫禁城格局，"北有故宫，南有木府"。'},
+            {name:'白沙古镇', pos:[100.2100,26.9300], theme:'humanity', desc:'纳西文化发源地，壁画大宝积宫闻名，至今保留原生态生活气息。'},
+            {name:'虎跳峡', pos:[100.1545,27.3010], theme:'nature', desc:'4A级景区，世界最深峡谷之一，金沙江激流呼啸，徒步者天堂。'},
+            {name:'泸沽湖', pos:[100.7500,27.7000], theme:'nature', desc:'4A级景区，高原明珠摩梭女儿国，湖水湛蓝，猪槽船荡漾。'},
+            {name:'拉市海湿地', pos:[100.1178,26.8892], theme:'nature', desc:'4A级景区，高原湿地自然保护区，茶马古道骑马体验。'},
+            {name:'大研花巷', pos:[100.2330,26.8780], theme:'casual', desc:'丽江古城内最美花巷，民谣酒吧与手作工坊的文艺聚集地。'},
+            {name:'狮子山万古楼', pos:[100.2288,26.8707], theme:'humanity', desc:'丽江古城制高点，登万古楼可俯瞰整个古城和玉龙雪山。'},
+            {name:'云杉坪', pos:[100.1950,27.0250], theme:'nature', desc:'玉龙雪山半山腰的高山草甸，原始云杉林环绕，宛如绿野仙踪。'},
+            {name:'蓝月谷', pos:[100.2050,27.0350], theme:'nature', desc:'玉龙雪山脚下梦幻蓝月谷，水色湛蓝如宝石，婚纱摄影圣地。'},
+            {name:'甘海子', pos:[100.2100,27.0600], theme:'nature', desc:'玉龙雪山东麓高山草甸，仰望雪山全景的最佳天然观景台。'},
+            {name:'印象丽江', pos:[100.1960,27.0100], theme:'humanity', desc:'张艺谋执导的大型实景演出，以玉龙雪山为背景震撼人心。'},
+            {name:'丽江千古情', pos:[100.1290,26.8740], theme:'casual', desc:'大型歌舞秀，演绎纳西族创世史诗和茶马古道传奇。'},
+            {name:'文海', pos:[100.1500,26.9800], theme:'nature', desc:'玉龙雪山腹地的高山湖泊，夏季花海漫山遍野，小众秘境。'},
+            {name:'玉水寨', pos:[100.2050,26.9420], theme:'humanity', desc:'4A级景区，纳西族东巴文化圣地，神泉清澈见底。'},
+            {name:'东巴谷', pos:[100.2150,26.9600], theme:'humanity', desc:'东巴文化主题园区，可体验东巴纸制作和象形文字书写。'},
+            {name:'观音峡', pos:[100.3100,26.8100], theme:'nature', desc:'4A级景区，茶马古道上的险峻峡谷，瀑布飞流直下。'},
+            {name:'老君山黎明景区', pos:[100.0350,26.8200], theme:'nature', desc:'世界自然遗产"三江并流"核心区，丹霞地貌与千龟山奇观。'},
+            {name:'永胜程海', pos:[100.6600,26.4500], theme:'nature', desc:'云南九大高原湖泊之一，螺旋藻之乡，湖畔田园风光如画。'},
+            {name:'四方街', pos:[100.2350,26.8740], theme:'food', desc:'丽江古城核心，美食和手工艺汇聚地，腊排骨、鸡豆凉粉必尝。'},
+            {name:'忠义市场', pos:[100.2300,26.8650], theme:'food', desc:'丽江本地人最大的农贸市场，新鲜菌子和山货的天堂。'},
+            {name:'阿婆腊排骨', pos:[100.2360,26.8770], theme:'food', desc:'丽江老字号名店，纳西传统腊排骨火锅，汤鲜肉香。'},
+            {name:'88号小吃', pos:[100.2340,26.8720], theme:'food', desc:'丽江古城老牌小吃店，纳西烤鱼、米灌肠等本地特色一应俱全。'}
+        ]
+    }
+};
+
+let currentCity = 'kunming';
+let currentTheme = 'all';
+let markers = [];
+
+// =======================================================
+// [模块 5]: 天气查询与 AI 穿搭助手
+// =======================================================
+let liveWeatherData = {};
+
+function fetchRealWeather(cityName, onSuccess) {
+    AMap.plugin('AMap.Weather', function() {
+        const weather = new AMap.Weather();
+        weather.getLive(cityName, function(err, data) {
+            if (!err && data) {
+                const w = {
+                    city: data.city || cityName, temp: data.temperature + '°C', tempNum: parseFloat(data.temperature),
+                    condition: data.weather, icon: getWeatherIcon(data.weather),
+                    hum: data.humidity + '%', wind: data.windDirection + '风 ' + data.windPower + '级',
+                    windPower: parseInt(data.windPower) || 0, reportTime: data.reportTime, desc: data.weather
+                };
+                liveWeatherData[currentCity] = w;
+                if (onSuccess) onSuccess(w);
+            }
+        });
+    });
+}
+
+function getWeatherIcon(c) {
+    if (!c) return '🌤️';
+    if (c.includes('晴')) return '☀️';
+    if (c.includes('云') || c.includes('阴')) return '⛅';
+    if (c.includes('小雨')) return '🌦️';
+    if (c.includes('中雨') || c.includes('大雨')) return '🌧️';
+    if (c.includes('暴雨')) return '⛈️';
+    if (c.includes('雪')) return '❄️';
+    if (c.includes('雾') || c.includes('霾')) return '🌫️';
+    if (c.includes('雷')) return '⛈️';
+    return '🌤️';
+}
+
+function updateWeatherSidebar(w) {
+    document.getElementById('sideCity').textContent = '📍 ' + w.city;
+    document.getElementById('sideTemp').textContent = w.temp;
+    document.getElementById('sideCond').textContent = w.icon + ' ' + w.condition;
+    document.getElementById('sideIcon').textContent = w.icon;
+    document.getElementById('sideDetails').innerHTML = `<span>💧 ${w.hum}</span><span>🍃 ${w.wind}</span>`;
+    document.getElementById('sideUpdate').textContent = '更新：' + (w.reportTime||'') + ' · 点击详情';
+}
+
+function loadWeatherForCity(cityKey) {
+    const city = cityData[cityKey];
+    fetchRealWeather(city.name, function(w) { updateWeatherSidebar(w); updateBudgetMini(); });
+}
+
+function openWeather() {
+    const cityName = cityData[currentCity].name;
+    document.getElementById('m-city').textContent = cityName + '市';
+    const cached = liveWeatherData[currentCity];
+    if (cached) fillWeatherModal(cached);
+    AMap.plugin('AMap.Weather', function() {
+        const weather = new AMap.Weather();
+        weather.getLive(cityName, function(err, data) {
+            if (!err && data) {
+                const w = {
+                    city:data.city, temp:data.temperature+'°C', tempNum:parseFloat(data.temperature),
+                    condition:data.weather, icon:getWeatherIcon(data.weather),
+                    hum:data.humidity+'%', wind:data.windDirection+'风 '+data.windPower+'级',
+                    windPower:parseInt(data.windPower)||0, reportTime:data.reportTime, desc:data.weather
+                };
+                liveWeatherData[currentCity] = w;
+                fillWeatherModal(w); updateWeatherSidebar(w);
+            }
+        });
+    });
+    document.getElementById('weatherModal').style.display = 'flex';
+    document.getElementById('aiOutfitContent').textContent = '点击下方按钮，获取结合实时天气与地形的AI穿搭建议...';
+    document.getElementById('aiOutfitBtn').disabled = false;
+    document.getElementById('aiOutfitBtn').textContent = '✨ 获取AI个性化建议';
+}
+
+function fillWeatherModal(w) {
+    document.getElementById('m-temp').textContent = w.temp;
+    document.getElementById('m-condition').textContent = w.icon + ' ' + w.condition;
+    document.getElementById('m-hum').textContent = w.hum;
+    document.getElementById('m-wind').textContent = w.wind;
+    document.getElementById('m-feels').textContent = w.temp;
+    document.getElementById('m-desc').textContent = w.desc;
+    document.getElementById('m-update-time').textContent = '更新时间：' + (w.reportTime||'实时');
+    const outfits = getOutfitRec(w.tempNum, w.condition);
+    document.getElementById('outfitItems').innerHTML = outfits.map(i=>`<div class="outfit-item">${i}</div>`).join('');
+    document.getElementById('outfitSceneTip').innerHTML = getOutfitTip(w.tempNum, w.condition);
+}
+
+async function getAIOutfitAdvice() {
+    const btn = document.getElementById('aiOutfitBtn');
+    const contentEl = document.getElementById('aiOutfitContent');
+    const city = cityData[currentCity];
+    const w = liveWeatherData[currentCity];
+    if (!w) { contentEl.textContent = '请稍等，正在获取天气数据...'; return; }
+    btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span>DeepSeek思考中...';
+    contentEl.textContent = '';
+    const prompt = `你是专业旅行穿搭顾问。根据以下实时信息给出精准穿搭建议：
+城市：${city.name} | 地形：${city.terrain}
+天气：${w.condition}，气温${w.temp}，湿度${w.hum}，${w.wind}
+请给出：1.核心穿搭建议（考虑高原气候/地形/温差）2.必备单品3-5件 3.特别注意事项
+语气友好，150字内，中文回答。`;
+    const result = await callDeepSeek([{role:'user',content:prompt}]);
+    contentEl.textContent = result;
+    btn.textContent = '🔄 重新获取'; btn.disabled = false;
+}
+
+const outfitRecs = {
+    general:{ cold:['🧥 羽绒服','🧣 围巾','🧤 手套','🎩 毛线帽'],cool:['🧥 风衣','👔 衬衫','👖 长裤','👟 运动鞋'],comfortable:['👕 短袖','👖 牛仔裤','🧥 薄外套','👟 休闲鞋'],hot:['👕 背心','🩳 短裤','🧴 防晒衣','👒 遮阳帽'],rainy:['🧥 冲锋衣','👢 雨靴','☂️ 折叠伞','🧴 防水喷雾'],sunny:['🧴 防晒霜','🕶️ 墨镜','👒 遮阳帽','👕 透气长袖'] },
+    male:{   cold:['🧥 羽绒大衣','👔 保暖内衣','👖 加绒裤','🧣 围巾'],cool:['🧥 夹克','👔 长袖衬衫','👖 直筒裤','👟 皮鞋'],comfortable:['👕 棉质T恤','👖 牛仔裤','🧥 薄针织衫','👟 帆布鞋'],hot:['👕 透气短袖','🩳 速干短裤','👒 渔夫帽','🧴 防晒霜'],rainy:['🧥 防水夹克','👖 防水裤','👢 防水靴','☂️ 自动伞'],sunny:['🧴 SPF50+防晒','🕶️ 偏光太阳镜','👒 速干帽','👕 冰丝袖套'] },
+    female:{ cold:['🧥 毛呢大衣','🧣 羊绒围巾','👢 加绒靴子','🎩 贝雷帽'],cool:['🧥 风衣','👗 连衣裙','👖 打底裤','👟 小白鞋'],comfortable:['👕 雪纺上衣','👖 阔腿裤','🧥 薄开衫','👟 芭蕾鞋'],hot:['👗 吊带裙','🩳 安全裤','👒 草帽','🧴 防晒喷雾'],rainy:['🧥 雨衣','👢 雨靴','☂️ 胶囊伞','🧴 防湿面膜'],sunny:['🧴 高倍防晒','🕶️ 复古墨镜','👒 编织草帽','👗 防晒衫'] }
+};
+let currentOutfitPref = 'general';
+function getOutfitRec(t, cond) {
+    let cat = 'comfortable';
+    if (t < 10) cat='cold'; else if (t<18) cat='cool'; else if (t<28) cat='comfortable'; else cat='hot';
+    if (cond && cond.includes('雨')) cat='rainy'; else if (cond && cond.includes('晴') && t > 25) cat='sunny';
+    return outfitRecs[currentOutfitPref][cat];
+}
+function getOutfitTip(t, cond) {
+    const city = cityData[currentCity].name;
+    const theme = currentTheme==='all'?'休闲':{humanity:'人文',nature:'自然',food:'美食',casual:'休闲'}[currentTheme];
+    let tip = `📍 在${city}进行${theme}游，`;
+    if (t<10) tip+='气温较低，选择保暖衣物，'; else if (t<20) tip+='早晚温差大，带件外套，'; else if (t<28) tip+='气温舒适，适宜出行，'; else tip+='气温较高，注意防暑，';
+    if (cond&&cond.includes('晴')) tip+='晴空万里，适合拍照！'; else if (cond&&cond.includes('雨')) tip+='注意防雨，出行安全！'; else tip+='天气多变，留意实时预报！';
+    return tip;
+}
+function setOutfitPreference(pref, btn) {
+    currentOutfitPref = pref;
+    document.querySelectorAll('.preference-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const w = liveWeatherData[currentCity];
+    if (w) document.getElementById('outfitItems').innerHTML = getOutfitRec(w.tempNum,w.condition).map(i=>`<div class="outfit-item">${i}</div>`).join('');
+}
+
+// =======================================================
+// [模块 6]: 地图交互与渲染中心
+// =======================================================
+let userLocation = [102.718, 25.014];
+let userMarker = null, fallbackPolyline = null;
+let infoWindow = null;
+
+function locateUser() {
+    if (!map) return;
+    alert('正在调用高德原生定位...\n(如果浏览器拦截，请直接拖拽地图上的蓝点)');
+    AMap.plugin('AMap.Geolocation', function() {
+        var geo = new AMap.Geolocation({enableHighAccuracy:true, timeout:5000});
+        geo.getCurrentPosition(function(status, result) {
+            if (status==='complete') {
+                userLocation = [result.position.lng, result.position.lat];
+                renderUserMarker(userLocation, '<b>📍我的真实位置</b>');
+                map.setZoomAndCenter(12, userLocation);
+            } else {
+                renderUserMarker(userLocation, '<b>📍默认起点(昆明站)</b><br>浏览器定位受限，请拖拽蓝点校准！');
+            }
+        });
+    });
+}
+
+function renderUserMarker(lnglat, popupText) {
+    if (!map) return;
+    if (userMarker) map.remove(userMarker);
+    userMarker = new AMap.Marker({position:lnglat, content:'<div class="user-marker"></div>', offset:new AMap.Pixel(-10,-10), draggable:true});
+    userMarker.setMap(map);
+    userMarker.on('click', function() { new AMap.InfoWindow({content:popupText, offset:new AMap.Pixel(0,-15)}).open(map, userMarker.getPosition()); });
+    userMarker.on('dragend', function(e) {
+        userLocation = [e.lnglat.lng, e.lnglat.lat];
+        if (currentTheme!=='all') generateSmartRoute();
+    });
+}
+
+function renderSpots() {
+    if (!map) return;
+    map.remove(markers); markers = [];
+    Object.values(routeControls).forEach(c=>{if(c&&c.clear)c.clear();});
+    if (fallbackPolyline) { map.remove(fallbackPolyline); fallbackPolyline=null; }
+
+    const data = cityData[currentCity];
+    document.getElementById('desc-'+(currentCity==='kunming'?'km':'dl')).innerText = `已收录 ${data.spots.length} 个景点`;
+    document.getElementById('sideCity').textContent = '📍 '+data.name+'市';
+
+    const filtered = data.spots.filter(s=>currentTheme==='all'||s.theme===currentTheme);
+    const themeNames = {humanity:'🏛️ 人文景点',nature:'🌲 自然景观',food:'🍜 美食场所',casual:'☕ 休闲场所'};
+
+    filtered.forEach(spot=>{
+        let marker = new AMap.Marker({
+            position:spot.pos, content:getMarkerIcon(spot.theme, spot.name),
+            offset:new AMap.Pixel(-30,-58), extData:{name:spot.name,desc:spot.desc,theme:spot.theme}
+        });
+        marker.on('click', function() {
+            if (!infoWindow) infoWindow = new AMap.InfoWindow({offset:new AMap.Pixel(0,-45)});
+            voiceGuideSpot = spot;
+            const voiceBtnHtml = `<br><button onclick="startVoiceGuide()" style="margin-top:6px;padding:4px 10px;border:none;border-radius:6px;background:linear-gradient(135deg,#FFA500,#FF8C00);color:#fff;cursor:pointer;font-size:12px;">🎙️ AI语音导游</button><div id="voice-guide-panel" style="display:none;margin-top:8px;"></div>`;
+            const terrainMatch = {'苍山洗马潭索道':'cangshan','轿子雪山':'jiaozi','大牯牛山':'dagu'};
+            const terrainId = terrainMatch[spot.name];
+            const terrainBtnHtml = terrainId ? `<br><button onclick="openTerrain3D('${terrainId}')" style="margin-top:6px;padding:4px 10px;border:none;border-radius:6px;background:linear-gradient(135deg,#4CAF50,#2196F3);color:#fff;cursor:pointer;font-size:12px;">🏔️ 查看3D地形</button>` : '';
+
+            // 🎯 新增：空间智能扫描按钮 (Buffer Analysis)
+            const bufferBtnHtml = `<br><button onclick="analyzeBuffer('${spot.name}')" style="margin-top:6px;width:100%;padding:6px;border:none;border-radius:6px;background:linear-gradient(135deg,#00d2ff,#3a7bd5);color:#fff;cursor:pointer;font-size:12px;font-weight:bold;">📡 扫描周边500m吃游点</button>`;
+
+            // UGC 景点删除按钮（仅对用户新增的景点显示）
+            const isUGC = spot.name.includes('⭐[新增]');
+            const ugcDeleteHtml = isUGC ? `<br><button onclick="deleteUGCSpot('${escapeHtml(spot.name)}')" style="margin-top:6px;width:100%;padding:6px;border:none;border-radius:6px;background:#F44336;color:#fff;cursor:pointer;font-size:12px;">🗑️ 删除此景点</button>` : '';
+
+            infoWindow.setContent(`<div style="padding:4px;max-width:260px;"><b style="font-size:14px;">${escapeHtml(spot.name)}</b><br><span style="font-size:11px;color:#888;">${themeNames[spot.theme]||''}</span><br><span style="font-size:12px;color:#555;line-height:1.5;">${escapeHtml(spot.desc)}</span>${terrainBtnHtml}${voiceBtnHtml}${bufferBtnHtml}${ugcDeleteHtml}</div>`);
+            infoWindow.open(map, marker.getPosition());
+            aiContextSpot = spot;
+        });
+        markers.push(marker);
+    });
+    map.add(markers);
+    updateCheckinUI();
+}
+
+function selectCity(city, btn) {
+    if (!map) return;
+    currentCity = city;
+    document.querySelectorAll('.route-card').forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    map.setCenter(cityData[city].pos); map.setZoom(10);
+    renderSpots(); loadWeatherForCity(city); drawDistricts(cityData[city].name);
+}
+
+function filterByTheme(theme) { currentTheme = theme; renderSpots(); document.getElementById('map-hint').style.display = 'none'; }
+
+// UGC 模式
+let isAddingSpot = false, tempLngLat = null;
+function enableAddSpotMode() {
+    if (!map) return;
+    isAddingSpot = true;
+    const hint = document.getElementById('map-hint');
+    hint.innerText = '🎯 请在地图上点击你要添加的景点具体位置';
+    hint.style.display = 'block'; hint.style.background = '#FFA500';
+    map.setDefaultCursor('crosshair');
+}
+if (map) {
+    map.on('click', function(e) {
+        if (!isAddingSpot) return;
+        tempLngLat = [e.lnglat.lng, e.lnglat.lat];
+        document.getElementById('display-coords').innerText = `${tempLngLat[0].toFixed(4)}, ${tempLngLat[1].toFixed(4)}`;
+        document.getElementById('addSpotModal').style.display = 'flex';
+        isAddingSpot = false; document.getElementById('map-hint').style.display = 'none'; map.setDefaultCursor('default');
+    });
+}
+function saveNewSpot() {
+    const name = document.getElementById('newSpotName').value.trim();
+    const theme = document.getElementById('newSpotTheme').value;
+    if (!name) return alert('请输入景点名称！');
+
+    const fullName = '⭐[新增] ' + name;
+    cityData[currentCity].spots.push({name: fullName, pos: tempLngLat, theme, desc:'由您私藏分享的宝藏打卡地'});
+
+    // 向后端写入操作日志
+    fetch('http://127.0.0.1:5000/api/log', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            action_type: 'CREATE',
+            target_type: 'LOCATION',
+            target_name: fullName,
+            operator: 'user',
+            details: {city: cityData[currentCity].name, pos: tempLngLat, theme}
+        })
+    }).catch(e => console.warn('日志写入失败(后端未启动):', e));
+
+    alert('🎉 发布成功！景点已加入地图。');
+    document.getElementById('newSpotName').value = ''; closeModal('addSpotModal'); currentTheme = 'all'; renderSpots();
+}
+
+// 删除 UGC 景点 (含操作日志)
+function deleteUGCSpot(spotName) {
+    if (!confirm(`确定要删除景点「${spotName}」吗？`)) return;
+
+    const spots = cityData[currentCity].spots;
+    const idx = spots.findIndex(s => s.name === spotName);
+    if (idx === -1) return alert('景点不存在');
+
+    spots.splice(idx, 1);
+
+    // 向后端写入操作日志
+    fetch('http://127.0.0.1:5000/api/log', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            action_type: 'DELETE',
+            target_type: 'LOCATION',
+            target_name: spotName,
+            operator: 'user',
+            details: {city: cityData[currentCity].name}
+        })
+    }).catch(e => console.warn('日志写入失败(后端未启动):', e));
+
+    renderSpots();
+    alert('🗑️ 景点已删除');
+}
+
+// 路线搜索与后端查询
+let searchMarkers = [];
+function searchLocation() {
+    let keyword = document.getElementById("searchInput").value.trim();
+    if (!keyword) { alert("请输入地名"); return; }
+    searchMarkers.forEach(m => { if (window.map && m) map.remove(m); });
+    searchMarkers = [];
+
+    fetch("http://127.0.0.1:5000/api/search?keyword=" + encodeURIComponent(keyword))
+    .then(res => res.json())
+    .then(data => {
+        let html = "";
+        if (data.length === 0) { html = "<div style='color:#999; padding:4px;'>未找到相关景点</div>"; }
+        else {
+            data.forEach(item => {
+                html += `<div style="padding:6px 0; border-bottom:1px solid #eee;"><div style="font-weight:bold;">${item.name}</div><div style="color:#666;">${item.category}</div><div style="color:#999; font-size:11px;">${item.longitude}, ${item.latitude}</div></div>`;
+                let pos = [item.longitude, item.latitude];
+                let marker = new AMap.Marker({ position: pos, title: item.name, label: { content: `<div style="background:#ff4d4f;color:white;padding:2px 6px;border-radius:4px;font-size:12px;">${item.name}</div>`, offset: new AMap.Pixel(10, -20) } });
+                marker.setMap(map); searchMarkers.push(marker);
+            });
+            let first = data[0]; map.setCenter([first.longitude, first.latitude]);
+        }
+        document.getElementById("searchResult").innerHTML = html;
+    }).catch(err => {
+        alert("地图查询需要本地后端支持。您可以直接在地图上浏览景点！"); console.error(err);
+    });
+}
+
+// =======================================================
+// [模块 7]: 路线规划与交通
+// =======================================================
+let currentSelectedTransport = 'driving';
+let routeResults = {};
+let totalDistance = 0;
+let routeControls = {driving:null,walking:null,riding:null,transfer:null};
+const transportConfig = {
+    walking: {name:'步行',icon:'🚶',plugin:'AMap.Walking',color:'#4CAF50'},
+    riding:  {name:'骑行',icon:'🚲',plugin:'AMap.Riding', color:'#2196F3'},
+    driving: {name:'驾车',icon:'🚗',plugin:'AMap.Driving',color:'#FF9800'},
+    transfer:{name:'公交',icon:'🚌',plugin:'AMap.Transfer',color:'#9C27B0'}
+};
+
+function getRecommendedTransport(dist, w) {
+    const t = w?w.tempNum:22, c=w?w.condition:'晴';
+    const good = c&&!c.includes('雨')&&t>=15&&t<=28;
+    if (dist<1) return {type:'walking',reason:'距离很近，步行最健康'};
+    if (dist<3) return good?{type:'riding',reason:'距离适中，骑行环保便捷'}:{type:'transfer',reason:'天气不佳，推荐公交'};
+    if (dist<10) return good?{type:'riding',reason:'天气宜人，骑行最美'}:{type:'transfer',reason:'推荐公交直达'};
+    if (dist<50) return {type:'driving',reason:'距离较远，推荐自驾'};
+    return {type:'driving',reason:'远距离，推荐驾车'};
+}
+
+function generateSmartRoute() {
+    if (!map||markers.length===0) return alert('请先在地图上选择景点！');
+    Object.values(routeControls).forEach(c=>{if(c&&c.clear)c.clear();});
+    if (fallbackPolyline){map.remove(fallbackPolyline);fallbackPolyline=null;}
+
+    document.getElementById('map-hint').style.display='none';
+    const w = liveWeatherData[currentCity];
+    let pts = markers.map(m=>new AMap.LngLat(m.getPosition().lng,m.getPosition().lat));
+    let start = new AMap.LngLat(userLocation[0],userLocation[1]);
+    let end = pts[pts.length-1], wpts = pts.slice(0,-1);
+
+    AMap.plugin('AMap.Driving', function() {
+        const drv = new AMap.Driving({map,hideMarkers:true,showTraffic:false});
+        drv.search(start,end,{waypoints:wpts},function(status,result){
+            if(status==='complete'){
+                totalDistance=(result.routes[0].distance/1000).toFixed(1);
+                const rec=getRecommendedTransport(parseFloat(totalDistance),w);
+                currentSelectedTransport=rec.type;
+                routeResults={driving:{dist:totalDistance,time:Math.round(result.routes[0].time/60),success:true}};
+                calculateAllRoutes(start,end,wpts,w,rec);
+            } else {
+                let sd=(start.distance(pts[0])/1000).toFixed(1); totalDistance=sd;
+                const rec=getRecommendedTransport(parseFloat(sd),w);
+                currentSelectedTransport=rec.type;
+                routeResults={driving:{dist:sd,time:null,success:false}};
+                calculateAllRoutes(start,end,wpts,w,rec);
+            }
+        });
+    });
+}
+
+function calculateAllRoutes(start,end,wpts,w,rec) {
+    let done=0; const total=Object.keys(transportConfig).length;
+    Object.keys(transportConfig).forEach(type=>{
+        if(type==='driving'){done++;if(done===total)showRoutePanel(w,rec);return;}
+        AMap.plugin(transportConfig[type].plugin,function(){
+            let planner; const opts={map,panel:null,hideMarkers:true};
+            if(type==='walking') planner=new AMap.Walking(opts); else if(type==='riding') planner=new AMap.Riding(opts); else if(type==='transfer') planner=new AMap.Transfer(opts);
+            planner.search(start,end,{waypoints:wpts},function(status,result){
+                if(status==='complete'&&result.routes&&result.routes.length>0) routeResults[type]={dist:(result.routes[0].distance/1000).toFixed(1),time:Math.round(result.routes[0].time/60),success:true};
+                else routeResults[type]={dist:null,time:null,success:false};
+                done++; if(done===total) showRoutePanel(w,rec);
+            });
+        });
+    });
+}
+
+function showRoutePanel(w,rec) {
+    document.getElementById('route-total-dist').innerText = `总距离：${totalDistance} 公里`;
+    document.getElementById('transportTabs').innerHTML = Object.keys(transportConfig).map(type=>{
+        const cf=transportConfig[type], isR=rec.type===type, isA=currentSelectedTransport===type;
+        return `<div class="transport-tab ${isA?'active':''} ${isR&&!isA?'recommended':''}" onclick="switchTransport('${type}')">${cf.icon} ${cf.name} ${isR&&!isA?'⭐推荐':''}</div>`;
+    }).join('');
+    renderRouteOption(currentSelectedTransport);
+    const t=w?w.tempNum:22, c=w?w.condition:'晴';
+    let tip=`根据当前距离 <b>${totalDistance}km</b> 和天气 ${c} ${w?w.temp:''}，`;
+    if(t<10) tip+=`气温较低，建议厚外套，${rec.reason}。`; else if(t<20) tip+=`气温适中，带薄外套，${rec.reason}。`; else if(t<30) tip+=`气温宜人，轻便穿搭，${rec.reason}。`; else tip+=`气温较高，透气衣物，${rec.reason}。`;
+    if(c&&c.includes('雨')) tip+=' 记得带伞！';
+    document.getElementById('aiTipContent').innerHTML = tip;
+    document.getElementById('routeOptionsModal').style.display='flex';
+}
+
+function switchTransport(type) {
+    currentSelectedTransport=type;
+    document.querySelectorAll('.transport-tab').forEach((t,i)=>t.classList.toggle('active',Object.keys(transportConfig)[i]===type));
+    renderRouteOption(type); planRouteByTransport(type);
+}
+
+function renderRouteOption(type) {
+    const r=routeResults[type],cf=transportConfig[type],con=document.getElementById('routeOptionsContainer');
+    if(!r||!r.success){con.innerHTML=`<div style="text-align:center;padding:30px;color:#999;"><div style="font-size:40px;">${cf.icon}</div><div>暂未找到合适的${cf.name}路线</div></div>`;return;}
+    con.innerHTML=`<div class="route-option-card selected"><div class="route-option-header"><div class="route-option-name">${cf.icon} ${cf.name}路线 <span class="route-option-badge recommended">推荐</span></div></div><div class="route-option-details"><div class="route-option-detail"><span>📏</span> 距离：<b>${r.dist}</b>公里</div><div class="route-option-detail"><span>⏱️</span> 预计：<b>${r.time?r.time+'分钟':'较长'}</b></div></div></div>`;
+}
+
+function planRouteByTransport(type) {
+    Object.values(routeControls).forEach(c=>{if(c&&c.clear)c.clear();});
+    if(fallbackPolyline){map.remove(fallbackPolyline);fallbackPolyline=null;}
+    let pts=markers.map(m=>new AMap.LngLat(m.getPosition().lng,m.getPosition().lat));
+    let start=new AMap.LngLat(userLocation[0],userLocation[1]),end=pts[pts.length-1],wpts=pts.slice(0,-1);
+    if(type==='driving'){routeControls.driving=new AMap.Driving({map,hideMarkers:true,showTraffic:false});routeControls.driving.search(start,end,{waypoints:wpts});}
+    else if(type==='walking'){routeControls.walking=new AMap.Walking({map,hideMarkers:true});routeControls.walking.search(start,end,{waypoints:wpts});}
+    else if(type==='riding'){routeControls.riding=new AMap.Riding({map,hideMarkers:true});routeControls.riding.search(start,end,{waypoints:wpts});}
+    else if(type==='transfer'){routeControls.transfer=new AMap.Transfer({map,hideMarkers:true,city:cityData[currentCity].name});routeControls.transfer.search(start,end,{waypoints:wpts});}
+}
+
+function confirmRoute() {
+    closeModal('routeOptionsModal'); planRouteByTransport(currentSelectedTransport);
+    const r=routeResults[currentSelectedTransport],cf=transportConfig[currentSelectedTransport];
+    const hint=document.getElementById('map-hint');
+    hint.innerHTML=`<b>${cf.icon} ${cf.name}路线已规划</b><br>距离：${r.dist}km | 预计：${r.time?r.time+'分钟':'较长'}`;
+    hint.style.display='block'; hint.style.background=cf.color;
+    setTimeout(()=>{hint.style.display='none';},5000);
+}
+
+// =======================================================
+// [模块 8]: 通用工具与打卡、预算、翻译功能
+// =======================================================
+function closeModal(id){document.getElementById(id).style.display='none';}
+function closeModalOnOverlay(e,id){if(e.target.id===id)closeModal(id);}
+
+function openThemeModal(theme) {
+    currentTheme=theme;
+    const titles={humanity:'🏛️ 慢享人文',nature:'🌲 自然情趣',food:'🍜 美食漫游',casual:'☕ 轻量休闲'};
+    document.getElementById('modal-theme-title').innerText=titles[theme];
+    const spots=cityData[currentCity].spots.filter(s=>s.theme===theme);
+    const con=document.getElementById('theme-spots-list');
+    con.innerHTML=spots.length===0?'<p style="color:#999;text-align:center;padding:20px;">暂无该主题路线。</p>':
+        spots.map(s=>`<div class="spot-item" style="cursor:pointer;" onclick="planSpot('${escapeHtml(s.name)}')"><div class="spot-name"><span>${escapeHtml(s.name)}</span></div><div class="spot-desc">${escapeHtml(s.desc)}</div></div>`).join('');
+    document.getElementById('themeModal').style.display='flex';
+}
+
+function openThemeAnalysis(theme) {
+    currentTheme=theme;
+    const titles={humanity:'慢享人文',nature:'自然情趣',food:'美食漫游',casual:'轻量休闲'};
+    document.getElementById('analysis-title').innerText=titles[theme];
+    document.getElementById('analysis-tip-text').innerText='系统已获取高德最新路网，点击下方按钮立即规划！';
+    const spots=cityData[currentCity].spots.filter(s=>s.theme===theme);
+    const con=document.getElementById('analysis-spots-container');
+    con.innerHTML=spots.length===0?'<p style="color:#999;text-align:center;padding:20px;">暂无该主题路线。</p>':
+        spots.map(s=>`<div class="spot-item"><div class="spot-name"><span>${escapeHtml(s.name)}</span></div><div class="spot-desc">${escapeHtml(s.desc)}</div></div>`).join('');
+    document.getElementById('analysisModal').style.display='flex';
+}
+
+function planSpot(spotName) {
+    closeModal('themeModal');
+    const spot=cityData[currentCity].spots.find(s=>s.name===spotName);
+    if(spot){ currentTheme=spot.theme; renderSpots(); generateSmartRoute(); }
+}
+function closeAndRoute(){closeModal('analysisModal');renderSpots();generateSmartRoute();}
+
+// AI语音模块
+async function startVoiceGuide() {
+    const spot = voiceGuideSpot; if (!spot) return;
+    const panel = document.getElementById('voice-guide-panel'); if (!panel) return;
+    panel.style.display = 'block'; panel.innerHTML = '<div style="color:#888;font-size:12px;">🎙️ 正在向DeepSeek大模型请求专属导游词...</div>';
+
+    try {
+        const prompt = `你是一位专业的金牌旅游向导。请为你所在城市的景点【${spot.name}】写一段简短、生动、引人入胜的语音播报导游词。
+        景点背景：${spot.desc}
+        要求：
+        1. 语气热情、亲切，像是在带领游客参观。
+        2. 字数控制在100字左右，适合语音播报。
+        3. 直接输出导游词正文，不要有任何多余的寒暄或格式。`;
+        const text = await callDeepSeek([{role:'user', content:prompt}]);
+        panel.innerHTML = `
+            <div style="font-size:12px;line-height:1.6;color:#333;max-height:150px;overflow-y:auto;padding:6px;background:#f9f9f9;border-radius:6px;">${escapeHtml(text)}</div>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+                <button onclick="speakGuideText(this.getAttribute('data-text'))" data-text="${escapeHtml(text)}" style="padding:3px 8px;border:none;border-radius:4px;background:#4CAF50;color:#fff;cursor:pointer;font-size:11px;">▶ 播放</button>
+                <button onclick="pauseGuide()" style="padding:3px 8px;border:none;border-radius:4px;background:#FFA500;color:#fff;cursor:pointer;font-size:11px;">⏸ 暂停</button>
+                <button onclick="stopGuide()" style="padding:3px 8px;border:none;border-radius:4px;background:#F44336;color:#fff;cursor:pointer;font-size:11px;">⏹ 停止</button>
+            </div>`;
+        speakGuideText(text);
+    } catch (e) {
+        panel.innerHTML = `<div style="color:red;font-size:12px;">⚠️ 讲解生成失败：${escapeHtml(e.message)}</div>`;
+    }
+}
+function speakGuideText(text) {
+    if (!window.speechSynthesis) { alert('您的浏览器不支持语音合成'); return; }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'zh-CN'; utterance.rate = 0.9; utterance.pitch = 1.0;
+    const voices = window.speechSynthesis.getVoices();
+    const zhVoice = voices.find(v => v.lang.startsWith('zh')); if (zhVoice) utterance.voice = zhVoice;
+    window.speechSynthesis.speak(utterance);
+}
+function pauseGuide() { if (!window.speechSynthesis) return; if (window.speechSynthesis.speaking) { window.speechSynthesis.paused ? window.speechSynthesis.resume() : window.speechSynthesis.pause(); } }
+function stopGuide() { if (window.speechSynthesis) window.speechSynthesis.cancel(); }
+
+// 登录与行程
+function openLogin(){document.getElementById('loginModal').style.display='flex';}
+function sendAuthCode(btn) {
+    const phone=document.getElementById('phoneInput').value;
+    if(!/^1\d{10}$/.test(phone))return alert('⚠️ 请先输入正确的11位手机号码！');
+    alert('✅ 验证码已发送 (测试环境自动填入 8888)');
+    document.getElementById('codeInput').value='8888';
+    let t=60; btn.disabled=true; btn.style.background='#ccc';
+    let tmr=setInterval(()=>{t--;btn.innerText=`${t}s后重发`;if(t<=0){clearInterval(tmr);btn.disabled=false;btn.style.background='#f0f2f5';btn.innerText='获取验证码';}},1000);
+}
+function handleAuth() {
+    if(!/^1\d{10}$/.test(document.getElementById('phoneInput').value))return alert('⚠️ 手机号格式不正确！');
+    if(!/^\d{4}$/.test(document.getElementById('codeInput').value))return alert('⚠️ 请输入4位验证码！');
+    alert('🎉 登录成功！开启你的随心游之旅。'); document.getElementById('authBtn').innerText='已登录'; closeModal('loginModal');
+}
+let itinerary = JSON.parse(localStorage.getItem('suixinyou_itinerary'))||[];
+function saveToItinerary(routeName) {
+    itinerary.unshift({id:Date.now(),name:routeName,time:new Date().toLocaleString('zh-CN',{hour12:false})});
+    localStorage.setItem('suixinyou_itinerary',JSON.stringify(itinerary)); alert(`路线【${routeName}】已成功收藏！`);
+}
+function openItinerary() {
+    const list=document.getElementById('itineraryList');
+    list.innerHTML=itinerary.length===0?'<p style="text-align:center;color:#999;padding:20px;">暂无行程记录，快去侧边栏收藏路线吧！</p>':
+        itinerary.map(item=>`<div class="itinerary-item"><div><div class="itinerary-title">📌 ${escapeHtml(item.name)}</div><div class="itinerary-time">收藏时间：${escapeHtml(item.time)}</div></div><span class="delete-btn" onclick="deleteItinerary(${item.id})">删除</span></div>`).join('');
+    document.getElementById('itineraryModal').style.display='flex';
+}
+function deleteItinerary(id) { itinerary=itinerary.filter(item=>item.id!==id); localStorage.setItem('suixinyou_itinerary',JSON.stringify(itinerary)); openItinerary(); }
+
+// 预算模块
+let budgetDays = 1;
+const budgetBase_static = {
+    food:      [{label:'经济型早餐',range:'¥10-20',note:'包子米线油条'},{label:'中餐人均',range:'¥30-60',note:'当地特色小馆'},{label:'晚餐人均',range:'¥40-100',note:'含特色餐厅'}],
+    ticket:    [{label:'免费景点',range:'¥0',note:'公园/古城/湿地'},{label:'付费景点',range:'¥30-100',note:'博物馆/索道/古村'}],
+    transport: [{label:'市内公交',range:'¥2-5/次',note:'主城区交通'},{label:'网约车/滴滴',range:'¥15-40/次',note:'景点间通勤'},{label:'单日包车',range:'¥200-400',note:'偏远景点推荐'}],
+    hotel:     [{label:'青旅/民宿',range:'¥80-180/晚',note:'背包客之选'},{label:'快捷酒店',range:'¥150-300/晚',note:'舒适标准'},{label:'精品民宿',range:'¥300-800/晚',note:'高品质体验'}]
+};
+function setBudgetDays(days, btn) {
+    budgetDays = days; document.querySelectorAll('.budget-day-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+    document.getElementById('budgetDaysLabel').textContent = days; calcBudgetTotal();
+}
+function renderBudgetGrid(gridId, items) { document.getElementById(gridId).innerHTML = items.map(i=>`<div class="budget-item"><div class="budget-item-label">${i.label}</div><div class="budget-item-range">${i.range}</div><div class="budget-item-note">${i.note}</div></div>`).join(''); }
+function calcBudgetTotal() {
+    const city = cityData[currentCity]; const b = city.budgetBase;
+    const foodMin=(b.food[0]+b.food[0]*0.5)*budgetDays, foodMax=(b.food[1]*3)*budgetDays;
+    const ticketMin=b.ticket[0]*budgetDays, ticketMax=b.ticket[1]*budgetDays*2;
+    const transMin=b.transport[0]*budgetDays, transMax=b.transport[1]*budgetDays;
+    const hotelMin=b.hotel[0]*(budgetDays>1?budgetDays-1:1), hotelMax=b.hotel[1]*(budgetDays>1?budgetDays-1:1);
+    const totalMin=Math.round(foodMin+ticketMin+transMin+hotelMin), totalMax=Math.round(foodMax+ticketMax+transMax+hotelMax);
+    document.getElementById('budgetTotalAmount').textContent = `¥ ${totalMin} - ${totalMax}`;
+    document.getElementById('budgetMiniAmount').textContent = `¥ ${totalMin}起`;
+    document.getElementById('budgetMiniNote').textContent = `${city.name}${budgetDays}天预算参考 →`;
+}
+function updateBudgetMini() { calcBudgetTotal(); }
+function openBudget() {
+    renderBudgetGrid('budgetFoodGrid', budgetBase_static.food); renderBudgetGrid('budgetTicketGrid', budgetBase_static.ticket);
+    renderBudgetGrid('budgetTransportGrid', budgetBase_static.transport); renderBudgetGrid('budgetHotelGrid', budgetBase_static.hotel);
+    calcBudgetTotal(); document.getElementById('budgetModal').style.display='flex';
+}
+async function getAIBudgetAdvice() {
+    const el=document.getElementById('budgetAiTip'); el.innerHTML='<span class="loading-spinner" style="border-top-color:#764ba2;border-color:rgba(118,75,162,.3);"></span>DeepSeek分析中...';
+    const city=cityData[currentCity], w=liveWeatherData[currentCity]; const weatherTip=w?`当前天气${w.condition}${w.temp}`:'';
+    const prompt=`你是旅游花费专家。针对${city.name}${budgetDays}天旅行（${city.terrain}），${weatherTip}，给出：
+1.每天餐饮省钱小技巧（2条） 2.景点票务优惠建议（2条） 3.交通最优方案（2条） 4.住宿性价比推荐（1条）
+总计控制在120字，中文，友好风格。`;
+    const result=await callDeepSeek([{role:'user',content:prompt}]); el.textContent=result;
+}
+
+// 打卡系统
+let checkinData = JSON.parse(localStorage.getItem('suixinyou_checkin'))||{};
+const badgesConfig = [
+    { id: 'novice', name: '初出茅庐', icon: '🎒', desc: '完成首次打卡', condition: (count) => count >= 1 },
+    { id: 'explorer', name: '探索家', icon: '🧭', desc: '累计打卡5次', condition: (count) => count >= 5 },
+    { id: 'nature', name: '自然之友', icon: '🌿', desc: '打卡3个自然景点', condition: (count, themes) => (themes.nature || 0) >= 3 },
+    { id: 'foodie', name: '美食老饕', icon: '🍲', desc: '打卡3个美食景点', condition: (count, themes) => (themes.food || 0) >= 3 },
+    { id: 'master', name: '旅行达人', icon: '👑', desc: '打卡10次以上', condition: (count) => count >= 10 }
+];
+function getEarnedBadges() {
+    let totalCount = Object.keys(checkinData).length; let themeCounts = { humanity:0, nature:0, food:0, casual:0 };
+    for (let key in checkinData) {
+        let spotName = key.split('_')[1];
+        for (let cityKey in cityData) {
+            let s = cityData[cityKey].spots.find(sp => sp.name === spotName);
+            if(s) themeCounts[s.theme]++;
+        }
+    }
+    return badgesConfig.map(b => ({ ...b, unlocked: b.condition(totalCount, themeCounts) }));
+}
+function updateCheckinUI() {
+    const spots=cityData[currentCity].spots;
+    const doneCount=spots.filter(s=>checkinData[currentCity+'_'+s.name]).length;
+    document.getElementById('checkinCount').textContent=doneCount;
+    document.getElementById('checkinTotal').textContent=spots.length;
+    const pct=spots.length>0?Math.round(doneCount/spots.length*100):0;
+    document.getElementById('checkinProgressFill').style.width=pct+'%';
+    document.getElementById('checkinNavBadge').textContent=doneCount;
+}
+function openCheckin() {
+    const spots=cityData[currentCity].spots;
+    const doneCount=spots.filter(s=>checkinData[currentCity+'_'+s.name]).length;
+    const themeIcons={humanity:'🏛️',nature:'🌲',food:'🍜',casual:'☕'};
+
+    const badges = getEarnedBadges();
+    document.getElementById('badgeContainer').innerHTML = badges.map(b => `
+        <div class="badge-item ${b.unlocked ? 'unlocked' : ''}" title="${b.desc}"><div class="badge-icon">${b.icon}</div><div class="badge-name">${b.name}</div></div>
+    `).join('');
+
+    document.getElementById('checkinStats').innerHTML=`
+        <div class="checkin-stat-card"><div class="checkin-stat-num">${doneCount}</div><div class="checkin-stat-label">已游玩</div></div>
+        <div class="checkin-stat-card"><div class="checkin-stat-num">${spots.length-doneCount}</div><div class="checkin-stat-label">待探索</div></div>
+        <div class="checkin-stat-card"><div class="checkin-stat-num">${spots.length>0?Math.round(doneCount/spots.length*100):0}%</div><div class="checkin-stat-label">完成率</div></div>`;
+
+    document.getElementById('checkinSpotList').innerHTML=spots.map(s=>{
+        const key=currentCity+'_'+s.name, done=!!checkinData[key];
+        return `
+        <div class="checkin-spot-item ${done?'done':''}" id="ci_${escapeHtml(s.name)}">
+            <div class="checkin-spot-icon">${themeIcons[s.theme]||'📍'}</div>
+            <div class="checkin-spot-info">
+                <div class="checkin-spot-name">${escapeHtml(s.name)}</div>
+                <div class="checkin-spot-theme">${{humanity:'慢享人文',nature:'自然情趣',food:'美食漫游',casual:'轻量休闲'}[s.theme]||''}</div>
+                ${done?`<div class="checkin-spot-time">✅ 打卡于 ${checkinData[key]}</div>`:''}
+            </div>
+            ${done ? `<span class="checkin-badge">已游玩</span>` : `<button class="checkin-btn todo" onclick="doCheckin('${escapeHtml(s.name)}')">打卡</button>`}
+        </div>`;
+    }).join('');
+    document.getElementById('checkinModal').style.display='flex';
+}
+function doCheckin(spotName) {
+    const key=currentCity+'_'+spotName; checkinData[key]=new Date().toLocaleString('zh-CN',{hour12:false});
+    localStorage.setItem('suixinyou_checkin',JSON.stringify(checkinData));
+    const prevUnlocked = getEarnedBadges().filter(b=>b.unlocked).length;
+    updateCheckinUI(); openCheckin();
+    const currUnlocked = getEarnedBadges().filter(b=>b.unlocked).length;
+    if(currUnlocked > prevUnlocked) setTimeout(() => alert('🎉 恭喜！你解锁了新的旅行成就徽章！'), 300);
+}
+
+// 翻译系统
+const travelPhrases=[
+    {zh:'你好',pinyin:'Nǐ hǎo',en:'Hello'},{zh:'谢谢',pinyin:'Xiè xie',en:'Thank you'},{zh:'多少钱？',pinyin:'Duōshao qián?',en:'How much?'},
+    {zh:'在哪里？',pinyin:'Zài nǎlǐ?',en:'Where is it?'},{zh:'好吃！',pinyin:'Hǎo chī!',en:'Delicious!'},{zh:'太贵了',pinyin:'Tài guì le',en:'Too expensive'},
+    {zh:'帮我拍照',pinyin:'Bāng wǒ pāi zhào',en:'Take a photo please'},{zh:'我迷路了',pinyin:'Wǒ mí lù le',en:'I\'m lost'},
+    {zh:'有英文菜单吗',pinyin:'Yǒu yīngwén càidān ma',en:'English menu?'},{zh:'不辣',pinyin:'Bú là',en:'Not spicy please'}
+];
+function switchTranslateTab(tab, btn) {
+    document.querySelectorAll('.translate-tab').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+    document.getElementById('translatePhrasePanel').style.display=tab==='phrase'?'block':'none';
+    document.getElementById('translateCustomPanel').style.display=tab==='custom'?'block':'none';
+}
+function openTranslate() {
+    document.getElementById('phraseGrid').innerHTML=travelPhrases.map(p=>`
+        <div class="phrase-card" onclick="copyPhrase('${p.zh}')"><div class="phrase-zh">${p.zh}</div><div class="phrase-pinyin">${p.pinyin}</div><div class="phrase-en">${p.en}</div></div>
+    `).join('');
+    document.getElementById('translateModal').style.display='flex';
+}
+function copyPhrase(text) { navigator.clipboard.writeText(text).catch(()=>{}); alert(`"${text}" 已复制到剪贴板！`); }
+async function doTranslate() {
+    const input=document.getElementById('translateInput').value.trim(); if(!input) return;
+    const el=document.getElementById('translateResult');
+    el.innerHTML='<span class="loading-spinner" style="border-top-color:#409EFF;border-color:rgba(64,158,255,.3);"></span>翻译中...';
+    const result=await callDeepSeek([{role:'user',content:`请将以下文字翻译成英文，并给出中文拼音。格式：【英文翻译】\n【拼音】\n文字：${input}`}]);
+    el.textContent=result;
+}
+
+// =======================================================
+// [模块 9]: 评分与图片上传模块
+// =======================================================
+let ratings = JSON.parse(localStorage.getItem('suixinyou_ratings')) || {};
+
+function openRating() {
+    const spots = cityData[currentCity].spots;
+    const themeIcons = { humanity: '🏛️', nature: '🌲', food: '🍜', casual: '☕' };
+
+    document.getElementById('ratingSpotList').innerHTML = spots.map((s, si) => {
+        const key = currentCity + '_' + s.name;
+        const saved = ratings[key] || { stars: 0, comment: '', photos: [] };
+        const safePhotos = saved.photos || [];
+
+        const starsHtml = [1, 2, 3, 4, 5].map(n =>
+            `<span class="star ${n <= saved.stars ? 'active' : ''}" onclick="setRating('${escapeHtml(s.name)}',${n})">⭐</span>`
+        ).join('');
+
+        const photosHtml = safePhotos.map(p => `<img src="${p}" class="rating-preview-img">`).join('');
+
+        return `<div class="rating-spot-card">
+            <div class="rating-spot-head">
+                <div class="rating-spot-name2">${themeIcons[s.theme] || '📍'} ${escapeHtml(s.name)}</div>
+                <div class="star-display" id="stars_${si}">${starsHtml}</div>
+            </div>
+
+            <div class="rating-photo-section">
+                <label class="upload-btn-mini" onclick="document.getElementById('file_${si}').click()">📷 拍照/上传风景</label>
+                <input type="file" id="file_${si}" accept="image/*" style="display:none" onchange="handleRatingPhoto(this, '${escapeHtml(s.name)}', ${si})">
+                <div class="rating-previews" id="previews_${si}">${photosHtml}</div>
+            </div>
+
+            <textarea class="rating-comment-input" id="comment_${si}" rows="2" placeholder="写下你的游览感受...">${escapeHtml(saved.comment)}</textarea>
+            <button class="rating-submit-btn" onclick="submitRating('${escapeHtml(s.name)}',${si})">提交评分</button>
+            <div class="rating-submitted" id="ratingOk_${si}" style="${saved.stars > 0 ? 'display:block' : ''}">✅ 评价已保存！</div>
+        </div>`;
+    }).join('');
+    document.getElementById('ratingModal').style.display = 'flex';
+}
+
+async function handleRatingPhoto(input, spotName, si) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+
+        const previewBox = document.getElementById(`previews_${si}`);
+        const uploadingTip = document.createElement('div');
+        uploadingTip.style.cssText = "font-size:12px; color:#409EFF; line-height:60px;";
+        uploadingTip.innerText = "上传中...";
+        previewBox.appendChild(uploadingTip);
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('http://127.0.0.1:5000/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.url) {
+                const key = currentCity + '_' + spotName;
+                if (!ratings[key]) ratings[key] = { stars: 0, comment: '', photos: [] };
+                if (!ratings[key].photos) ratings[key].photos = [];
+                ratings[key].photos.push(data.url);
+
+                previewBox.removeChild(uploadingTip);
+                const img = document.createElement('img');
+                img.src = data.url;
+                img.className = 'rating-preview-img';
+                previewBox.appendChild(img);
+            }
+        } catch (error) {
+            console.error("图片上传失败:", error);
+            previewBox.removeChild(uploadingTip);
+            alert("⚠️ 图片上传失败，请确保本地 Python 后端服务(5000端口)已正常启动。");
+        }
+    }
+}
+
+function setRating(spotName, stars) {
+    const key = currentCity + '_' + spotName;
+    if (!ratings[key]) ratings[key] = { stars: 0, comment: '', photos: [] };
+    ratings[key].stars = stars; openRating();
+}
+
+function submitRating(spotName, si) {
+    const key = currentCity + '_' + spotName;
+    const commentEl = document.getElementById('comment_' + si);
+    if (!ratings[key]) ratings[key] = { stars: 0, comment: '', photos: [] };
+    ratings[key].comment = commentEl ? commentEl.value : '';
+    localStorage.setItem('suixinyou_ratings', JSON.stringify(ratings));
+
+    const okEl = document.getElementById('ratingOk_' + si);
+    if (okEl) { okEl.style.display = 'block'; setTimeout(() => { okEl.style.display = 'none'; }, 2000); }
+}
+
+// =======================================================
+// [模块 10]: AI 聊天系统与智能行程编排
+// =======================================================
+let chatHistory=[], isChatOpen=false;
+function toggleChatPanel() {
+    isChatOpen=!isChatOpen; const panel=document.getElementById('ai-chat-panel');
+    if(isChatOpen){panel.classList.add('show');document.getElementById('chatInput').focus();} else panel.classList.remove('show');
+}
+function handleChatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMessage();}}
+function sendQuickMsg(text){document.getElementById('chatInput').value=text;sendChatMessage();}
+function addChatMsg(role, text, isTyping=false) {
+    const msgs=document.getElementById('chatMessages');
+    const div=document.createElement('div'); div.className=`chat-msg ${role}`;
+    const av=document.createElement('div'); av.className='msg-avatar'; av.textContent=role==='bot'?'🤖':'我';
+    const bubble=document.createElement('div'); bubble.className='chat-bubble';
+    if(isTyping){bubble.innerHTML='<div class="chat-typing"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';div.id='typing-indicator';}
+    else bubble.textContent=text;
+    div.appendChild(av); div.appendChild(bubble); msgs.appendChild(div);
+    msgs.scrollTop=msgs.scrollHeight; return div;
+}
+
+function typeWriterEffect(element, text, speed = 30, callback) {
+    let i = 0; element.innerHTML = '';
+    function typing() {
+        if (i < text.length) {
+            element.innerHTML += text.charAt(i); i++;
+            const msgs = document.getElementById('chat-messages'); if(msgs) msgs.scrollTop = msgs.scrollHeight;
+            setTimeout(typing, speed);
+        } else { if (callback) callback(); }
+    }
+    typing();
+}
+
+// 🔥 新增：在地图上绘制 AI 生成的多日游路线
+function drawMultiDayRoute(planData) {
+    if (multiDayRouteLines.length) map.remove(multiDayRouteLines);
+    if (multiDayRouteMarkers.length) map.remove(multiDayRouteMarkers);
+    multiDayRouteLines = []; multiDayRouteMarkers = [];
+
+    const colors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#9C27B0'];
+
+    planData.days.forEach((dayPlan, idx) => {
+        const color = colors[idx % colors.length];
+        let path = [];
+
+        dayPlan.route.forEach((spotName, sIdx) => {
+            const spot = cityData[currentCity].spots.find(s => s.name === spotName || spotName.includes(s.name));
+            if (spot) {
+                path.push(spot.pos);
+                const mk = new AMap.Marker({
+                    position: spot.pos,
+                    content: `<div style="background:${color};color:#fff;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;font-weight:bold;font-size:11px;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.3);position:relative;z-index:100;">D${dayPlan.day}-${sIdx+1}</div>`,
+                    offset: new AMap.Pixel(-13, -13),
+                    zIndex: 200
+                });
+                multiDayRouteMarkers.push(mk);
+            }
+        });
+
+        if (path.length > 1) {
+            const line = new AMap.Polyline({
+                path: path, strokeColor: color, strokeWeight: 4, strokeOpacity: 0.9,
+                showDir: true, lineJoin: 'round', lineCap: 'round', zIndex: 50
+            });
+            multiDayRouteLines.push(line);
+        }
+    });
+
+    if(multiDayRouteMarkers.length) map.add(multiDayRouteMarkers);
+    if(multiDayRouteLines.length) map.add(multiDayRouteLines);
+    if (multiDayRouteLines.length > 0) {
+        map.setFitView([...multiDayRouteMarkers, ...multiDayRouteLines]);
+    }
+}
+
+async function sendChatMessage() {
+    const input=document.getElementById('chatInput');
+    const text=input.value.trim(); if(!text)return;
+    const btn=document.getElementById('chatSendBtn');
+    input.value=''; btn.disabled=true;
+
+    addChatMsg('user',text);
+    chatHistory.push({role:'user',content:text});
+    const typingIndicator = addChatMsg('bot','',true);
+
+    let isToolCalled = false;
+    let toolReplyText = "";
+
+    // 🔥 拦截“多日规划行程”意图，启动 AI Route Planner
+    if (text.includes("规划") && (text.includes("日") || text.includes("天"))) {
+        isToolCalled = true;
+        const spotsList = cityData[currentCity].spots.map(s => s.name).join('、');
+        const planPrompt = `你是旅行规划师。用户请求：${text}。当前城市：${cityData[currentCity].name}。
+请从以下景点中挑选合适组合，根据空间位置合理安排。必须严格返回JSON格式，不要任何其他解释，不要Markdown标记：
+{"days": [ {"day": 1, "route": ["景点A", "景点B"]} ]}
+可选景点库：${spotsList}`;
+
+        try {
+            const jsonStr = await callDeepSeek([{role:'user', content:planPrompt}]);
+            const match = jsonStr.match(/\{[\s\S]*\}/);
+            if (match) {
+                const planData = JSON.parse(match[0]);
+                drawMultiDayRoute(planData);
+                toolReplyText = "✅ 已经为您生成专属多日游智能行程，并在地图上为您绘制了连线与打卡序号，请查看地图！";
+            } else {
+                toolReplyText = "抱歉，引擎返回的数据格式有误，请重试。";
+            }
+        } catch(e) {
+            toolReplyText = "规划失败，请检查网络。";
+        }
+    }
+    // 原有的“单点导航”意图拦截
+    else if (text.includes("带我去") || text.includes("导航")) {
+        let targetSpotName = null;
+        cityData[currentCity].spots.forEach(s => {
+            if (text.includes(s.name) || text.includes(s.name.replace('风景区', ''))) targetSpotName = s.name;
+        });
+
+        if (targetSpotName) {
+            planSpot(targetSpotName); isToolCalled = true;
+            toolReplyText = `好的！我已经为您在地图上启动了前往【${targetSpotName}】的路线规划，您可以查看界面中间的弹窗详情。`;
+        }
+    }
+
+    if (isToolCalled) {
+        setTimeout(() => {
+            typingIndicator.remove();
+            const botMsgDiv = addChatMsg('bot', ''); const bubble = botMsgDiv.querySelector('.chat-bubble');
+            typeWriterEffect(bubble, toolReplyText, 30, () => {
+                chatHistory.push({role: 'assistant', content: toolReplyText}); btn.disabled = false; input.focus();
+            });
+        }, 500); return;
+    }
+
+    const w = liveWeatherData[currentCity], city = cityData[currentCity];
+    const wInfo = w ? `当前天气：${w.condition}，气温${w.temp}，湿度${w.hum}，${w.wind}` : '天气获取中';
+    const contextInfo = aiContextSpot ? `[系统信息：用户刚刚在地图上点击了景点【${aiContextSpot.name}】，如果你觉得合适，可以主动结合这个景点回答。]` : '';
+
+    const system = `你是"随心游"旅行APP的DeepSeek AI助手，专注云南旅游。
+当前用户城市：${city.name}（${city.terrain}）
+${wInfo}
+${contextInfo}
+景点池：${city.spots.map(s=>s.name).join('、')}
+请用中文友好回答，150字以内，对话风格。`;
+
+    try {
+        const reply = await callDeepSeek(chatHistory, system);
+        typingIndicator.remove();
+        const botMsgDiv = addChatMsg('bot', ''); const bubble = botMsgDiv.querySelector('.chat-bubble');
+        typeWriterEffect(bubble, reply, 30, () => {
+            chatHistory.push({role:'assistant',content:reply});
+            if(chatHistory.length>20) chatHistory=chatHistory.slice(-20);
+            btn.disabled = false; input.focus();
+        });
+    } catch (e) {
+        typingIndicator.remove(); addChatMsg('bot', '⚠️ 抱歉，连接到DeepSeek AI大模型遇到了点问题，请检查网络或 API Key。'); btn.disabled = false; input.focus();
+    }
+}
+
+// =======================================================
+// [模块 11]: 盲盒抽签路线规划器
+// =======================================================
+let bbSelectedCities = new Set(['kunming', 'dali', 'lijiang']);
+let bbDays = 1;
+let bbPref = 'balanced';
+let bbPlanData = null;
+
+function openBlindBox() {
+    // 重置为默认
+    bbSelectedCities = new Set(['kunming', 'dali', 'lijiang']);
+    bbDays = 1;
+    bbPref = 'balanced';
+
+    document.querySelectorAll('#bbCityGrid .bb-city-card').forEach(el => el.classList.add('selected'));
+    document.querySelectorAll('#bbDaySelector .bb-day-btn').forEach((el, i) => el.classList.toggle('active', i === 0));
+    document.querySelectorAll('#bbPrefGrid .bb-pref-card').forEach(el => el.classList.toggle('active', el.dataset.pref === 'balanced'));
+    document.getElementById('bbResult').style.display = 'none';
+    document.getElementById('bbDrawBtn').disabled = false;
+    document.getElementById('bbDrawBtn').innerHTML = '🎁 抽盲盒！生成惊喜路线';
+    document.getElementById('blindboxModal').style.display = 'flex';
+}
+
+function toggleBBCity(el) {
+    el.classList.toggle('selected');
+    const city = el.dataset.city;
+    if (bbSelectedCities.has(city)) bbSelectedCities.delete(city);
+    else bbSelectedCities.add(city);
+}
+
+function setBBDay(el) {
+    document.querySelectorAll('#bbDaySelector .bb-day-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    bbDays = parseInt(el.textContent);
+}
+
+function setBBPref(el) {
+    document.querySelectorAll('#bbPrefGrid .bb-pref-card').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    bbPref = el.dataset.pref;
+}
+
+async function drawBlindBox() {
+    if (bbSelectedCities.size === 0) { alert('请至少选择一个城市！'); return; }
+    const btn = document.getElementById('bbDrawBtn');
+    btn.disabled = true; btn.innerHTML = '🎰 盲盒抽签中...'; btn.classList.add('loading');
+    document.getElementById('bbResult').style.display = 'none';
+    const resultDiv = document.getElementById('bbResult');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div class="bb-loading-anim"><div class="bb-box">🎁</div><p>✨ 正在为你抽取惊喜路线...</p></div>';
+
+    const cityNames = []; let curatedSpots = [];
+    bbSelectedCities.forEach(key => {
+        cityNames.push(cityData[key].name);
+        let spots = [...cityData[key].spots];
+        if (bbPref !== 'balanced') {
+            spots.sort((a,b) => { const am=a.theme===bbPref?0:1; const bm=b.theme===bbPref?0:1; return am-bm; });
+        } else { spots.sort(() => Math.random() - 0.5); }
+        const topThemed = spots.filter(s => s.theme === bbPref).slice(0, 5);
+        const others = spots.filter(s => s.theme !== bbPref).sort(() => Math.random() - 0.5).slice(0, 7);
+        [...topThemed, ...others].forEach(s => { curatedSpots.push({name:s.name,city:cityData[key].name,theme:s.theme,pos:s.pos}); });
+    });
+    curatedSpots = curatedSpots.sort(() => Math.random() - 0.5);
+
+    const w = liveWeatherData[Array.from(bbSelectedCities)[0]] || null;
+    const weatherInfo = w ? '当前天气：'+w.condition+'，气温'+w.temp+'，'+w.wind : '天气数据获取中';
+    const spotPoolStr = curatedSpots.map(s => s.name+'（'+s.city+'·'+({humanity:'人文',nature:'自然',food:'美食',casual:'休闲'})[s.theme]+'）').join('、');
+    const prefNames = { balanced:'均衡体验',nature:'自然风光为主',humanity:'人文历史为主',food:'美食之旅为主' };
+    const spotsPerDay = bbSelectedCities.size === 1 ? 3 : 2;
+
+    const planPrompt = '你是旅行规划师。用户抽盲盒获得：'+cityNames.join('、')+'，'+bbDays+'天，'+prefNames[bbPref]+'，'+weatherInfo+'。从下方选'+(bbDays*spotsPerDay)+'个景点分'+bbDays+'天。只返回JSON：{"days":[{"day":1,"route":["景点1","景点2"],"theme":"主题"}],"highlight":"推荐理由","surprise_pick":"小众景点","ai_advice":"建议"} 景点池：'+spotPoolStr;
+
+    try {
+        const jsonStr = await callDeepSeek([{role:'user',content:planPrompt}]);
+        let parsed = null;
+        try { parsed = JSON.parse(jsonStr); } catch(e) {}
+        if (!parsed) { const m = jsonStr.match(/\`{3}(?:json)?\s*([\s\S]*?)\`{3}/); if(m) { try { parsed = JSON.parse(m[1].trim()); } catch(e) {} } }
+        if (!parsed) { const m = jsonStr.match(/\{[\s\S]*\}/); if(m) { try { parsed = JSON.parse(m[0]); } catch(e) {} } }
+        if (!parsed || !parsed.days || !parsed.days.length) throw new Error('AI返回格式异常');
+        bbPlanData = parsed;
+
+        const colors = ['#409EFF','#67C23A','#E6A23C','#F56C6C','#9C27B0'];
+        let html = '';
+        bbPlanData.days.forEach((dayPlan, idx) => {
+            html += '<div class="bb-day-result" style="border-left-color:'+colors[idx%colors.length]+';">';
+            html += '<h4>📅 第'+dayPlan.day+'天'+(dayPlan.theme?' · '+escapeHtml(dayPlan.theme):'')+'</h4>';
+            dayPlan.route.forEach((name, si) => {
+                const spot = findSpotInAllCities(name);
+                const abbr = spot ? ({kunming:'昆',dali:'大',lijiang:'丽'}[spot.cityKey]||'') : '';
+                html += '<div class="bb-spot-item"><span class="bb-idx">'+(si+1)+'</span> '+escapeHtml(name)+(abbr?' <span style="font-size:11px;color:#999;">['+abbr+']</span>':'')+'</div>';
+            });
+            html += '</div>';
+        });
+        html += '<div style="text-align:center;font-size:13px;color:#999;margin:8px 0;">📏 全程约 '+(bbPlanData.total_distance_km||'--')+' 公里</div>';
+        resultDiv.innerHTML = html;
+        if (bbPlanData.highlight) { document.getElementById('bbHighlight').innerHTML='🌟 <b>亮点推荐：</b>'+escapeHtml(bbPlanData.highlight); document.getElementById('bbHighlight').style.display='block'; }
+        if (bbPlanData.surprise_pick) { document.getElementById('bbSurprise').innerHTML='🎉 <b>隐藏宝藏：</b>'+escapeHtml(bbPlanData.surprise_pick); document.getElementById('bbSurprise').style.display='block'; }
+        if (bbPlanData.ai_advice) { document.getElementById('bbAiTip').innerHTML='🤖 <b>AI贴心建议：</b>'+escapeHtml(bbPlanData.ai_advice); document.getElementById('bbAiTip').style.display='block'; }
+    } catch(e) {
+        console.error('盲盒抽签失败:', e);
+        const fb = generateFallbackRoute();
+        bbPlanData = fb;
+        const colors = ['#409EFF','#67C23A','#E6A23C','#F56C6C','#9C27B0'];
+        let html = '';
+        fb.days.forEach((dayPlan, idx) => {
+            html += '<div class="bb-day-result" style="border-left-color:'+colors[idx%colors.length]+';"><h4>📅 第'+dayPlan.day+'天</h4>';
+            dayPlan.route.forEach(name => {
+                const spot = findSpotInAllCities(name);
+                const abbr = spot?({kunming:'昆',dali:'大',lijiang:'丽'}[spot.cityKey]||''):'';
+                html += '<div class="bb-spot-item"><span class="bb-idx">✦</span> '+escapeHtml(name)+(abbr?' <span style="font-size:11px;color:#999;">['+abbr+']</span>':'')+'</div>';
+            });
+            html += '</div>';
+        });
+        resultDiv.innerHTML = html;
+        document.getElementById('bbHighlight').innerHTML='🌟 <b>推荐：</b>'+escapeHtml(fb.highlight); document.getElementById('bbHighlight').style.display='block';
+        document.getElementById('bbSurprise').innerHTML='🎉 <b>隐藏宝藏：</b>'+escapeHtml(fb.surprise_pick); document.getElementById('bbSurprise').style.display='block';
+        document.getElementById('bbAiTip').innerHTML='🤖 <b>AI离线建议：</b>'+escapeHtml(fb.ai_advice); document.getElementById('bbAiTip').style.display='block';
+    }
+    document.getElementById('bbDrawBtn').innerHTML='🎁 再抽一次！换条路线';
+    btn.classList.remove('loading'); btn.disabled = false;
+}
+
+function generateFallbackRoute() {
+    const cityKeys = Array.from(bbSelectedCities);
+    const spotsPerDay = cityKeys.length === 1 ? 4 : 3;
+    const totalNeeded = bbDays * spotsPerDay;
+    let pool = [];
+    cityKeys.forEach(key => {
+        let cs = [...cityData[key].spots];
+        if (bbPref !== 'balanced') { cs.sort((a,b)=>{const am=a.theme===bbPref?0:1;const bm=b.theme===bbPref?0:1;return am-bm;}); }
+        else { cs.sort(() => Math.random() - 0.5); }
+        cs.slice(0, Math.ceil(totalNeeded/cityKeys.length)+2).forEach(s => pool.push({...s,cityKey:key,cityName:cityData[key].name}));
+    });
+    pool.sort(() => Math.random() - 0.5);
+    const days = []; const used = new Set();
+    for (let d = 1; d <= bbDays; d++) {
+        const route = [];
+        for (let i = 0; i < spotsPerDay && pool.length > 0; i++) {
+            let picked = null;
+            for (let j = 0; j < pool.length; j++) {
+                if (!used.has(pool[j].name)) { picked = pool[j]; used.add(picked.name); pool.splice(j,1); break; }
+            }
+            if (picked) route.push(picked.name);
+        }
+        if (route.length) days.push({day:d,route:route,theme:''});
+    }
+    const allNames = new Set();
+    cityKeys.forEach(k => cityData[k].spots.forEach(s => allNames.add(s.name)));
+    const routeNames = new Set();
+    days.forEach(d => d.route.forEach(n => routeNames.add(n)));
+    const unused = Array.from(allNames).filter(n => !routeNames.has(n));
+    const pts = { balanced:'建议早出晚归合理安排体力。', nature:'穿舒适运动鞋带防晒和水。', humanity:'预留充足时间品味历史。', food:'建议错峰用餐。' };
+    return {
+        days: days,
+        total_distance_km: bbDays*30+Math.floor(Math.random()*40),
+        highlight: '为您精选了'+used.size+'个景点覆盖'+cityKeys.length+'城'+bbDays+'天',
+        surprise_pick: unused.length?unused[Math.floor(Math.random()*unused.length)]:'探索你身边的隐藏美景',
+        ai_advice: (pts[bbPref]||'')+'天气多变请留意实时信息。'
+    };
+}function confirmBlindBoxRoute() {
+    if (!bbPlanData || !bbPlanData.days) {
+        alert('请先抽盲盒生成路线！');
+        return;
+    }
+
+    closeModal('blindboxModal');
+
+    // 清除旧覆盖物，切换到盲盒结果城市
+    clearMapOverlay();
+
+    // 使用改造后的跨城绘图函数
+    drawMultiDayRouteCrossCity(bbPlanData);
+
+    const hint = document.getElementById('map-hint');
+    hint.innerHTML = '🎁 <b>盲盒路线已开启！</b> 查看地图上的彩色路线和序号标记';
+    hint.style.display = 'block';
+    hint.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+    setTimeout(() => { hint.style.display = 'none'; }, 5000);
+}
+
+// 跨城景点查找
+function findSpotInAllCities(spotName) {
+    for (const cityKey of ['kunming', 'dali', 'lijiang']) {
+        const spot = cityData[cityKey].spots.find(s => s.name === spotName || spotName.includes(s.name) || s.name.includes(spotName));
+        if (spot) return { ...spot, cityKey };
+    }
+    return null;
+}
+
+// 跨城多日路线绘制
+function drawMultiDayRouteCrossCity(planData) {
+    if (multiDayRouteLines.length) map.remove(multiDayRouteLines);
+    if (multiDayRouteMarkers.length) map.remove(multiDayRouteMarkers);
+    multiDayRouteLines = [];
+    multiDayRouteMarkers = [];
+
+    const colors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#9C27B0'];
+    const cityAbbr = { kunming: '昆', dali: '大', lijiang: '丽' };
+    let allPaths = [];
+
+    planData.days.forEach((dayPlan, idx) => {
+        const color = colors[idx % colors.length];
+        let path = [];
+
+        dayPlan.route.forEach((spotName, sIdx) => {
+            const spot = findSpotInAllCities(spotName);
+            if (spot) {
+                path.push(spot.pos);
+                const abbr = cityAbbr[spot.cityKey] || '';
+                const mk = new AMap.Marker({
+                    position: spot.pos,
+                    content: `<div style="background:${color};color:#fff;border-radius:50%;width:30px;height:30px;line-height:30px;text-align:center;font-weight:bold;font-size:12px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);position:relative;z-index:100;">D${dayPlan.day}<span style="font-size:9px;opacity:.8;">${abbr}</span></div>`,
+                    offset: new AMap.Pixel(-15, -15),
+                    zIndex: 200
+                });
+                multiDayRouteMarkers.push(mk);
+                allPaths.push(spot.pos);
+            }
+        });
+
+        if (path.length > 1) {
+            const line = new AMap.Polyline({
+                path: path,
+                strokeColor: color,
+                strokeWeight: 4,
+                strokeOpacity: 0.9,
+                showDir: true,
+                lineJoin: 'round',
+                lineCap: 'round',
+                zIndex: 50
+            });
+            multiDayRouteLines.push(line);
+        }
+    });
+
+    if (multiDayRouteMarkers.length) map.add(multiDayRouteMarkers);
+    if (multiDayRouteLines.length) map.add(multiDayRouteLines);
+    if (allPaths.length > 0) {
+        // 计算适配所有点的视角
+        map.setFitView([...multiDayRouteMarkers, ...multiDayRouteLines], false, [60, 60, 60, 60]);
+    }
+}
+
+// 修改原有的 drawMultiDayRoute 也支持跨城查找（复用 findSpotInAllCities）
+const _origDrawMultiDay = drawMultiDayRoute;
+drawMultiDayRoute = function(planData) {
+    if (multiDayRouteLines.length) map.remove(multiDayRouteLines);
+    if (multiDayRouteMarkers.length) map.remove(multiDayRouteMarkers);
+    multiDayRouteLines = [];
+    multiDayRouteMarkers = [];
+
+    const colors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#9C27B0'];
+
+    planData.days.forEach((dayPlan, idx) => {
+        const color = colors[idx % colors.length];
+        let path = [];
+
+        dayPlan.route.forEach((spotName, sIdx) => {
+            // 先查当前城市，再查全部城市
+            let spot = cityData[currentCity].spots.find(s => s.name === spotName || spotName.includes(s.name));
+            if (!spot) spot = findSpotInAllCities(spotName);
+            if (spot) {
+                path.push(spot.pos);
+                const mk = new AMap.Marker({
+                    position: spot.pos,
+                    content: `<div style="background:${color};color:#fff;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;font-weight:bold;font-size:11px;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.3);position:relative;z-index:100;">D${dayPlan.day}-${sIdx+1}</div>`,
+                    offset: new AMap.Pixel(-13, -13),
+                    zIndex: 200
+                });
+                multiDayRouteMarkers.push(mk);
+            }
+        });
+
+        if (path.length > 1) {
+            const line = new AMap.Polyline({
+                path: path, strokeColor: color, strokeWeight: 4, strokeOpacity: 0.9,
+                showDir: true, lineJoin: 'round', lineCap: 'round', zIndex: 50
+            });
+            multiDayRouteLines.push(line);
+        }
+    });
+
+    if(multiDayRouteMarkers.length) map.add(multiDayRouteMarkers);
+    if(multiDayRouteLines.length) map.add(multiDayRouteLines);
+    if (multiDayRouteLines.length > 0) {
+        map.setFitView([...multiDayRouteMarkers, ...multiDayRouteLines]);
+    }
+};
+
+// =======================================================
+// [模块 12]: 操作日志查看器
+// =======================================================
+let logCurrentPage = 1;
+
+function openLogViewer() {
+    document.getElementById('logModal').style.display = 'flex';
+    loadLogs(1);
+}
+
+function refreshLogs() {
+    loadLogs(logCurrentPage);
+}
+
+async function loadLogs(page) {
+    logCurrentPage = page || 1;
+    const action = document.getElementById('logFilterAction').value;
+    const target = document.getElementById('logFilterTarget').value;
+    const keyword = document.getElementById('logFilterKeyword').value;
+
+    const tbody = document.getElementById('logTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:30px;">加载中...</td></tr>';
+
+    try {
+        const params = new URLSearchParams({
+            page: logCurrentPage, size: 15,
+            action, target, keyword
+        });
+        const resp = await fetch(`http://127.0.0.1:5000/api/logs?${params}`);
+        const result = await resp.json();
+
+        if (!result.data || result.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:30px;">暂无操作日志</td></tr>';
+            document.getElementById('logPagination').innerHTML = '';
+            return;
+        }
+
+        tbody.innerHTML = result.data.map(log => {
+            const badgeClass = { 'CREATE': 'create', 'UPDATE': 'update', 'DELETE': 'delete' }[log.action_type] || '';
+            const typeNames = { 'LOCATION': '景点', 'FLOW_DATA': '客流数据' };
+            const actionNames = { 'CREATE': '新增', 'UPDATE': '更新', 'DELETE': '删除' };
+            const detailsStr = log.details ? JSON.stringify(log.details).substring(0, 50) + (JSON.stringify(log.details).length > 50 ? '...' : '') : '-';
+            const timeStr = log.created_at ? log.created_at.substring(5, 19).replace('T', ' ') : '-';
+
+            return `<tr>
+                <td style="font-size:11px;white-space:nowrap;">${timeStr}</td>
+                <td><span class="log-badge ${badgeClass}">${actionNames[log.action_type] || log.action_type}</span></td>
+                <td>${typeNames[log.target_type] || log.target_type}</td>
+                <td style="font-weight:500;">${escapeHtml(log.target_name || '-')}</td>
+                <td>${escapeHtml(log.operator)}</td>
+                <td style="font-size:11px;color:#999;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(detailsStr)}">${escapeHtml(detailsStr)}</td>
+            </tr>`;
+        }).join('');
+
+        // 分页
+        const totalPages = Math.ceil(result.total / result.size);
+        let pagHtml = '';
+        for (let i = 1; i <= totalPages && i <= 20; i++) {
+            pagHtml += `<button class="log-page-btn ${i === logCurrentPage ? 'active' : ''}" onclick="loadLogs(${i})">${i}</button>`;
+        }
+        document.getElementById('logPagination').innerHTML = pagHtml || '';
+
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#F44336;padding:30px;">⚠️ 加载失败，请确保后端服务已启动</td></tr>';
+        console.error('日志加载失败:', e);
+    }
+}
+
+// =======================================================
+// [模块 13]: 实时客流管理面板
+// =======================================================
+let flowEditData = {};
+
+function openFlowManager() {
+    document.getElementById('flowModal').style.display = 'flex';
+    loadFlowData();
+}
+
+function refreshFlowData() {
+    loadFlowData();
+}
+
+async function loadFlowData() {
+    const container = document.getElementById('flowManagerContent');
+    container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">加载客流数据...</div>';
+
+    // 获取后端实时数据
+    let flowMap = {};
+    try {
+        const resp = await fetch('http://127.0.0.1:5000/api/visitor-flow/current');
+        if (resp.ok) {
+            const data = await resp.json();
+            data.forEach(f => { flowMap[f.spot_name] = f; });
+        }
+    } catch (e) { /* 后端不可用时使用空数据 */ }
+
+    const spots = cityData[currentCity].spots;
+
+    let html = '';
+    spots.forEach(spot => {
+        const existingFlow = flowMap[spot.name];
+        const count = existingFlow ? existingFlow.visitor_count : 0;
+        const level = existingFlow ? existingFlow.congestion_level : 1;
+        const statusText = existingFlow ? existingFlow.status_text : '未知';
+        const key = spot.name.replace(/[^a-zA-Z0-9一-鿿]/g, '_');
+
+        html += `
+        <div class="flow-item-card" id="flowCard_${key}">
+            <div class="flow-item-name">${escapeHtml(spot.name)}</div>
+            <div class="flow-item-inputs">
+                <div>
+                    <label style="font-size:11px;color:#999;">客流量</label>
+                    <input type="number" id="flowCount_${key}" value="${count}" min="0" max="9999" style="width:80px;">
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#999;">拥堵等级</label>
+                    <select id="flowLevel_${key}" style="width:70px;">
+                        <option value="1" ${level===1?'selected':''}>1-空闲</option>
+                        <option value="2" ${level===2?'selected':''}>2-较松</option>
+                        <option value="3" ${level===3?'selected':''}>3-适中</option>
+                        <option value="4" ${level===4?'selected':''}>4-较挤</option>
+                        <option value="5" ${level===5?'selected':''}>5-爆满</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#999;">状态</label>
+                    <select id="flowStatus_${key}" style="width:80px;">
+                        <option value="空闲" ${statusText==='空闲'?'selected':''}>空闲</option>
+                        <option value="适中" ${statusText==='适中'?'selected':''}>适中</option>
+                        <option value="拥挤" ${statusText==='拥挤'?'selected':''}>拥挤</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#999;">备注</label>
+                    <input type="text" id="flowNote_${key}" placeholder="如：下午高峰" style="width:100px;" value="${escapeHtml(existingFlow && existingFlow.note ? existingFlow.note : '')}">
+                </div>
+            </div>
+            <div style="font-size:11px;color:#999;white-space:nowrap;">
+                ${existingFlow ? '🕐 ' + (existingFlow.update_time || '').substring(5,16) : '暂无记录'}
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+async function submitFlowUpdates() {
+    const spots = cityData[currentCity].spots;
+    let updated = 0;
+
+    for (const spot of spots) {
+        const key = spot.name.replace(/[^a-zA-Z0-9一-鿿]/g, '_');
+        const countEl = document.getElementById(`flowCount_${key}`);
+        if (!countEl) continue;
+
+        const visitorCount = parseInt(countEl.value) || 0;
+        const congestionLevel = parseInt(document.getElementById(`flowLevel_${key}`).value) || 1;
+        const statusText = document.getElementById(`flowStatus_${key}`).value;
+        const note = document.getElementById(`flowNote_${key}`).value || '';
+
+        try {
+            const resp = await fetch('http://127.0.0.1:5000/api/visitor-flow/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    spot_name: spot.name,
+                    city: cityData[currentCity].name,
+                    visitor_count: visitorCount,
+                    congestion_level: congestionLevel,
+                    status_text: statusText,
+                    source: 'MANUAL',
+                    note: note,
+                    operator: 'admin'
+                })
+            });
+
+            if (resp.ok) {
+                updated++;
+                // 卡片高亮反馈
+                const card = document.getElementById(`flowCard_${key}`);
+                if (card) { card.style.borderColor = '#4CAF50'; setTimeout(() => { card.style.borderColor = '#eee'; }, 1000); }
+            }
+        } catch (e) {
+            console.error('更新失败:', spot.name, e);
+        }
+    }
+
+    alert(`✅ 已成功更新 ${updated}/${spots.length} 个景点的客流数据`);
+}
+
+window.onload=()=>{
+    if(map){ renderSpots(); renderUserMarker(userLocation,'<b>📍系统默认起点 (可拖拽)</b>'); drawDistricts(cityData['kunming'].name);}
+    loadWeatherForCity('kunming'); updateCheckinUI(); updateBudgetMini();
+};
+</script>
+</body>
+</html>
