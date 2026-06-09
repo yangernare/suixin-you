@@ -397,6 +397,60 @@
         #chatInput:focus { border-color:var(--primary); }
         #chatSendBtn { padding:9px 15px; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border:none; border-radius:20px; cursor:pointer; font-size:13px; white-space:nowrap; }
         #chatSendBtn:disabled { opacity:.6; cursor:not-allowed; }
+
+        /* ========== 景点图片画廊 ========== */
+        .gallery-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:5000; flex-direction:column; align-items:center; padding:20px; }
+        .gallery-modal.show { display:flex; animation:fadeIn .3s ease; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .gallery-header { width:100%; max-width:1100px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+        .gallery-title { color:#fff; font-size:22px; font-weight:700; }
+        .gallery-close { background:rgba(255,255,255,.15); border:none; color:#fff; font-size:28px; width:44px; height:44px; border-radius:50%; cursor:pointer; transition:.3s; display:flex; align-items:center; justify-content:center; }
+        .gallery-close:hover { background:rgba(255,255,255,.3); transform:scale(1.1); }
+        .gallery-grid { width:100%; max-width:1100px; display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:12px; overflow-y:auto; max-height:calc(100vh - 120px); padding:4px; }
+        .gallery-grid::-webkit-scrollbar { width:6px; }
+        .gallery-grid::-webkit-scrollbar-thumb { background:rgba(255,255,255,.3); border-radius:3px; }
+        .gallery-item { position:relative; border-radius:12px; overflow:hidden; cursor:pointer; aspect-ratio:4/3; background:#222; transition:transform .3s; }
+        .gallery-item:hover { transform:scale(1.03); }
+        .gallery-item img { width:100%; height:100%; object-fit:cover; transition:opacity .5s; }
+        .gallery-item img.loading { opacity:0; }
+        .gallery-item img.loaded { opacity:1; }
+        .gallery-item-overlay { position:absolute; bottom:0; left:0; right:0; padding:10px 12px; background:linear-gradient(transparent, rgba(0,0,0,.7)); color:#fff; font-size:12px; }
+        .gallery-loading { text-align:center; color:rgba(255,255,255,.6); padding:60px 20px; font-size:16px; }
+        .gallery-loading .spinner { display:inline-block; width:36px; height:36px; border:3px solid rgba(255,255,255,.2); border-top-color:#fff; border-radius:50%; animation:spin .8s linear infinite; margin-bottom:12px; }
+        @keyframes spin { to{transform:rotate(360deg)} }
+
+        /* Lightbox 放大查看 */
+        .lightbox-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.95); z-index:6000; justify-content:center; align-items:center; cursor:pointer; }
+        .lightbox-modal.show { display:flex; }
+        .lightbox-modal img { max-width:92vw; max-height:88vh; border-radius:8px; box-shadow:0 8px 40px rgba(0,0,0,.5); object-fit:contain; }
+        .lightbox-close { position:fixed; top:20px; right:24px; background:rgba(255,255,255,.15); border:none; color:#fff; font-size:30px; width:48px; height:48px; border-radius:50%; cursor:pointer; z-index:6001; transition:.3s; }
+        .lightbox-close:hover { background:rgba(255,255,255,.3); }
+        .lightbox-nav { position:fixed; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.12); border:none; color:#fff; font-size:32px; width:50px; height:50px; border-radius:50%; cursor:pointer; z-index:6001; transition:.3s; display:flex; align-items:center; justify-content:center; }
+        .lightbox-nav:hover { background:rgba(255,255,255,.3); }
+        .lightbox-nav.prev { left:20px; }
+        .lightbox-nav.next { right:20px; }
+        .lightbox-counter { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,.7); font-size:14px; z-index:6001; }
+
+        /* 美食图层按钮 */
+        .map-type-btn.food-layer { border-color:#F44336; color:#C62828; font-weight:bold; }
+        .map-type-btn.food-layer.active { background:#F44336; color:#fff; border-color:#F44336; }
+
+        /* 评分徽章 */
+        .spot-rating-badge { position:absolute; top:-6px; right:-6px; background:#FF9800; color:#fff; font-size:10px; font-weight:700; padding:2px 5px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.3); z-index:10; white-space:nowrap; }
+        .spot-rating-badge.no-rating { background:#bbb; }
+
+        /* 美食筛选面板 */
+        .food-filter-panel { position:absolute; top:16px; left:16px; z-index:1000; background:#fff; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,.15); padding:14px 16px; display:none; min-width:200px; }
+        .food-filter-panel.show { display:block; animation:fadeIn .3s ease; }
+        .food-filter-title { font-size:14px; font-weight:600; color:var(--title); margin-bottom:10px; }
+        .food-filter-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:13px; color:var(--body); }
+        .food-filter-row input[type="range"] { flex:1; accent-color:#F44336; }
+        .food-filter-row .rating-val { font-weight:700; color:#F44336; min-width:20px; }
+        .food-spot-list { max-height:200px; overflow-y:auto; margin-top:8px; }
+        .food-spot-item { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #f0f0f0; font-size:12px; }
+        .food-spot-item:last-child { border-bottom:none; }
+        .food-spot-stars { color:#FF9800; font-size:11px; }
+        .food-spot-name { font-weight:500; color:var(--title); }
     </style>
 </head>
 <body>
@@ -493,6 +547,7 @@
             <div class="map-type-btn" data-type="terrain3d" onclick="openTerrain3D()"><span>🏔️</span> 3D地形</div>
             <div class="map-type-btn heat" data-type="heatmap" onclick="toggleHeatmap()"><span>🔥</span> 实时感知</div>
             <div class="map-type-btn traffic-light" data-type="trafficLight" onclick="showTrafficStatus()"><span>🚥</span> 客流预警</div>
+            <div class="map-type-btn food-layer" data-type="foodLayer" onclick="toggleFoodLayer()"><span>🍜</span> 美食图层</div>
         </div>
         <div class="map-zoom-controls" style="top: 150px;">
             <button class="zoom-btn" onclick="map.zoomIn()">+</button>
@@ -841,6 +896,40 @@
             <button class="form-submit" style="background:#67C23A;" onclick="refreshFlowData()">🔄 刷新数据</button>
         </div>
     </div>
+</div>
+
+<!-- ========== 景点图片画廊 ========== -->
+<div class="gallery-modal" id="galleryModal">
+    <div class="gallery-header">
+        <div class="gallery-title" id="galleryTitle">📸 景点图集</div>
+        <button class="gallery-close" onclick="closeGallery()">×</button>
+    </div>
+    <div class="gallery-grid" id="galleryGrid">
+        <div class="gallery-loading"><div class="spinner"></div><br>加载图片中...</div>
+    </div>
+</div>
+
+<!-- Lightbox 放大查看 -->
+<div class="lightbox-modal" id="lightboxModal" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()">×</button>
+    <button class="lightbox-nav prev" onclick="event.stopPropagation();navLightbox(-1)">‹</button>
+    <img id="lightboxImg" src="" onclick="event.stopPropagation()">
+    <button class="lightbox-nav next" onclick="event.stopPropagation();navLightbox(1)">›</button>
+    <div class="lightbox-counter" id="lightboxCounter"></div>
+</div>
+
+<!-- 美食图层筛选面板 -->
+<div class="food-filter-panel" id="foodFilterPanel">
+    <div class="food-filter-title">🍜 美食图层筛选</div>
+    <div class="food-filter-row">
+        <span>最低评分：</span>
+        <input type="range" id="foodRatingFilter" min="0" max="5" step="0.5" value="0" oninput="updateFoodFilter()">
+        <span class="rating-val" id="foodRatingVal">0</span>⭐
+    </div>
+    <div class="food-filter-row">
+        <span>已收录美食：<b id="foodSpotCount">0</b> 家</span>
+    </div>
+    <div class="food-spot-list" id="foodSpotList"></div>
 </div>
 
 <button id="ai-chat-btn" onclick="toggleChatPanel()" title="DeepSeek AI旅行助手"><span>✨</span><div class="chat-fab-badge">DeepSeek</div></button>
@@ -1780,11 +1869,14 @@ function renderSpots() {
             // 🎯 新增：空间智能扫描按钮 (Buffer Analysis)
             const bufferBtnHtml = `<br><button onclick="analyzeBuffer('${spot.name}')" style="margin-top:6px;width:100%;padding:6px;border:none;border-radius:6px;background:linear-gradient(135deg,#00d2ff,#3a7bd5);color:#fff;cursor:pointer;font-size:12px;font-weight:bold;">📡 扫描周边500m吃游点</button>`;
 
+            // 📸 新增：景点图片画廊按钮
+            const galleryBtnHtml = `<br><button onclick="openGallery('${escapeHtml(spot.name)}')" style="margin-top:6px;width:100%;padding:6px;border:none;border-radius:6px;background:linear-gradient(135deg,#9C27B0,#7B1FA2);color:#fff;cursor:pointer;font-size:12px;font-weight:bold;">📸 查看图集</button>`;
+
             // UGC 景点删除按钮（仅对用户新增的景点显示）
             const isUGC = spot.name.includes('⭐[新增]');
             const ugcDeleteHtml = isUGC ? `<br><button onclick="deleteUGCSpot('${escapeHtml(spot.name)}')" style="margin-top:6px;width:100%;padding:6px;border:none;border-radius:6px;background:#F44336;color:#fff;cursor:pointer;font-size:12px;">🗑️ 删除此景点</button>` : '';
 
-            infoWindow.setContent(`<div style="padding:4px;max-width:260px;"><b style="font-size:14px;">${escapeHtml(spot.name)}</b><br><span style="font-size:11px;color:#888;">${themeNames[spot.theme]||''}</span><br><span style="font-size:12px;color:#555;line-height:1.5;">${escapeHtml(spot.desc)}</span>${terrainBtnHtml}${voiceBtnHtml}${bufferBtnHtml}${ugcDeleteHtml}</div>`);
+            infoWindow.setContent(`<div style="padding:4px;max-width:260px;"><b style="font-size:14px;">${escapeHtml(spot.name)}</b><br><span style="font-size:11px;color:#888;">${themeNames[spot.theme]||''}</span><br><span style="font-size:12px;color:#555;line-height:1.5;">${escapeHtml(spot.desc)}</span>${terrainBtnHtml}${voiceBtnHtml}${galleryBtnHtml}${bufferBtnHtml}${ugcDeleteHtml}</div>`);
             infoWindow.open(map, marker.getPosition());
             aiContextSpot = spot;
         });
@@ -2990,6 +3082,323 @@ async function submitFlowUpdates() {
     }
 
     alert(`✅ 已成功更新 ${updated}/${spots.length} 个景点的客流数据`);
+}
+
+// =======================================================
+// [模块 14]: 景点图片画廊
+// =======================================================
+
+// 景点图片数据库（使用 Unsplash 搜索关键词生成图片URL）
+const photoDatabase = {
+    // 昆明
+    '石林风景区':     ['stone+forest+kunming', 'karst+landscape+china', '石林+云南'],
+    '世博园':         ['kunming+expo+garden', 'yunnan+exposition', '世博园+昆明'],
+    '云南民族村':     ['yunnan+ethnic+village', 'minority+culture+china', '民族村+昆明'],
+    '西山龙门':       ['longmen+kunming+western+hill', 'dian+lake+view', '西山+龙门'],
+    '昆明金殿':       ['golden+temple+kunming', 'bronze+temple+china', '金殿+昆明'],
+    '官渡古镇':       ['guandu+ancient+town+kunming', 'ancient+town+yunnan', '官渡古镇'],
+    '轿子雪山':       ['jiaozi+snow+mountain', 'snow+mountain+yunnan', '轿子雪山'],
+    '云南野生动物园': ['yunnan+wildlife+park', 'zoo+kunming', '野生动物园'],
+    '大观公园':       ['daguan+park+kunming', 'chinese+garden+lake', '大观楼'],
+    '宜良九乡':       ['jiuxiang+karst+cave', 'underground+river+yunnan', '九乡溶洞'],
+    '安宁温泉':       ['hot+spring+anning', 'thermal+bath+yunnan', '温泉+安宁'],
+    '阳宗海度假区':   ['yangzong+hai+lake', 'resort+lake+yunnan', '阳宗海'],
+    '昆明植物园':     ['kunming+botanical+garden', 'botanical+garden+yunnan', '植物园+昆明'],
+    '黑龙潭公园':     ['black+dragon+pool+kunming', 'temple+garden+kunming', '黑龙潭'],
+    '捞鱼河湿地':     ['wetland+kunming+dian+lake', 'marsh+park+yunnan', '捞鱼河湿地'],
+    '融创海世界':     ['ocean+world+kunming', 'aquarium+china', '融创海世界'],
+    '福保半岛':       ['fubao+peninsula', 'beach+dian+lake', '福保半岛'],
+    '海埂大坝':       ['haigeng+dam+dian+lake', 'dian+lake+dam+kunming', '海埂大坝'],
+    '陆军讲武堂':     ['military+academy+kunming', 'french+architecture+china', '陆军讲武堂'],
+    '翠湖公园':       ['green+lake+kunming', 'cu+hu+park', '翠湖公园'],
+    '海晏村':         ['haiyan+village+dian+lake', 'fishing+village+yunnan', '海晏村'],
+    '大牯牛山':       ['mountain+peak+yunnan', 'cloud+sea+sunrise', '大牯牛山'],
+    '篆新农贸':       ['zhuanxin+market+kunming', 'food+market+china', '篆新市场'],
+    '南强街巷':       ['nanqiang+street+kunming', 'night+market+yunnan', '南强街巷'],
+    '斗南花市':       ['flower+market+kunming', 'dounan+flower', '斗南花市'],
+    '金马碧鸡坊':     ['jinma+biji+fang', 'golden+horse+gate+kunming', '金马碧鸡坊'],
+    '圆通山动物园':   ['yuantong+mountain+zoo', 'cherry+blossom+kunming', '圆通山'],
+    '云南大学':       ['yunnan+university', 'campus+ginkgo+yunnan', '云南大学'],
+    '教场中路蓝花楹': ['jacaranda+kunming', 'purple+flower+street', '蓝花楹+昆明'],
+    '文明街':         ['wenming+street+kunming', 'old+street+yunnan', '文明街'],
+    '昆明瀑布公园':   ['waterfall+park+kunming', 'artificial+waterfall', '瀑布公园'],
+    '七彩云南欢乐世界':['colorful+yunnan+theme+park', 'amusement+park+kunming', '欢乐世界'],
+    '东川红土地':     ['dongchuan+red+land', 'red+soil+landscape+yunnan', '红土地'],
+    '昆明老街':       ['old+town+kunming', 'historic+street+yunnan', '昆明老街'],
+    '斗南湿地公园':   ['dounan+wetland+park', 'wetland+garden+kunming', '斗南湿地'],
+    '金殿后山农家乐': ['farmhouse+restaurant+kunming', 'rural+food+yunnan', '农家乐'],
+    '草海隧道公园':   ['caohai+park+kunming', 'tunnel+park+dian+lake', '草海公园'],
+
+    // 大理
+    '崇圣寺三塔':     ['three+pagodas+dali', 'chongseng+temple', '崇圣寺三塔'],
+    '大理古城':       ['dali+ancient+city', 'old+town+dali+yunnan', '大理古城'],
+    '苍山洗马潭索道': ['cangshan+cable+car', 'mountain+cableway+dali', '苍山索道'],
+    '蝴蝶泉':         ['butterfly+spring+dali', 'butterfly+pool+yunnan', '蝴蝶泉'],
+    '南诏风情岛':     ['nanzhao+island+erhai', 'island+erhai+lake', '南诏风情岛'],
+    '宾川鸡足山':     ['jizu+mountain+binchuan', 'buddhist+mountain+yunnan', '鸡足山'],
+    '沙溪古镇':       ['shaxi+ancient+town', 'tea+horse+road+shaxi', '沙溪古镇'],
+    '双廊艺术小镇':   ['shuanglang+town+erhai', 'erhai+lake+village', '双廊'],
+    '祥云水目山':     ['shuimu+mountain+xiangyun', 'temple+mountain+yunnan', '水目山'],
+    '大理地热国':     ['hot+spring+dali', 'geothermal+resort', '地热国'],
+    '大理西湖':       ['dali+west+lake', 'lake+village+yunnan', '大理西湖'],
+    '剑川老君山':     ['laojun+mountain+jianchuan', 'danxia+landscape', '老君山'],
+    '云龙宝丰古镇':   ['baofeng+ancient+town+yunlong', 'ancient+town+yunnan', '宝丰古镇'],
+    '弥渡小河淌水':   ['midu+river+song', 'countryside+yunnan', '小河淌水'],
+    '飘香酒馆':       ['restaurant+dali+food', 'local+food+yunnan', '飘香酒馆'],
+    '心邸咖啡':       ['cafe+erhai+lake', 'coffee+shop+dali', '心邸咖啡'],
+    '喜洲古镇':       ['xizhou+ancient+town+dali', 'bai+architecture+yunnan', '喜洲古镇'],
+    '复兴路美食':     ['fuxing+road+dali+food', 'street+food+dali', '复兴路美食'],
+    '龙龛码头':       ['longkan+wharf+erhai', 'sunrise+erhai+lake', '龙龛码头'],
+    '才村码头':       ['caicun+wharf+erhai', 'erhai+cycling', '才村码头'],
+    '洱海生态廊道':   ['erhai+eco+corridor', 'cycling+path+erhai', '洱海廊道'],
+    '理想邦':         ['libang+dali+santorini', 'white+building+erhai', '理想邦'],
+    '文笔村':         ['wenbi+village+erhai', 'hilltop+village+dali', '文笔村'],
+    '鹿卧山':         ['luwo+mountain+erhai', 'valley+view+erhai', '鹿卧山'],
+    '大理大学':       ['dali+university', 'campus+cherry+blossom', '大理大学'],
+    '周城扎染':       ['zhouchen+batik+dali', 'tie+dye+bai+culture', '周城扎染'],
+    '巍山古城':       ['weishan+ancient+town', 'old+town+weishan', '巍山古城'],
+    '诺邓古村':       ['nuodeng+ancient+village', 'traditional+village+yunnan', '诺邓古村'],
+    '天龙八部影视城': ['dragon+seekers+film+city', 'movie+studio+dali', '天龙八部影视城'],
+    '者摩山':         ['zhemo+mountain+dali', 'sunset+mountain+erhai', '者摩山'],
+    '大理床单厂艺术区':['dali+art+district', 'creative+park+yunnan', '床单厂'],
+    '三塔倒影公园':   ['three+pagodas+reflection', 'pagoda+mirror+lake', '三塔倒影'],
+
+    // 丽江
+    '玉龙雪山':       ['jade+dragon+snow+mountain', 'snow+mountain+lijiang', '玉龙雪山'],
+    '丽江古城':       ['lijiang+ancient+city', 'old+town+lijiang', '丽江古城'],
+    '束河古镇':       ['shuhe+ancient+town', 'tea+horse+road+lijiang', '束河古镇'],
+    '黑龙潭公园':     ['black+dragon+pool+lijiang', 'jade+dragon+reflection', '黑龙潭+丽江'],
+    '木府':           ['mu+residence+lijiang', 'naxi+palace', '木府'],
+    '白沙古镇':       ['baisha+ancient+town', 'naxi+village+lijiang', '白沙古镇'],
+    '虎跳峡':         ['tiger+leaping+gorge', 'yangtze+river+gorge', '虎跳峡'],
+    '泸沽湖':         ['lu+gu+lake', 'mosuo+lake+yunnan', '泸沽湖'],
+    '拉市海湿地':     ['lashihai+wetland', 'horse+riding+lijiang', '拉市海'],
+    '大研花巷':       ['dayan+flower+lane+lijiang', 'flower+street+old+town', '大研花巷'],
+    '狮子山万古楼':   ['lion+mountain+wangu+tower', 'panorama+lijiang+old+town', '万古楼'],
+    '云杉坪':         ['spruce+meadow+jade+dragon', 'alpine+meadow+lijiang', '云杉坪'],
+    '蓝月谷':         ['blue+moon+valley', 'turquoise+lake+jade+dragon', '蓝月谷'],
+    '甘海子':         ['ganhaizi+meadow+jade+dragon', 'grassland+snow+mountain', '甘海子'],
+    '印象丽江':       ['impression+lijiang+show', 'outdoor+performance+lijiang', '印象丽江'],
+    '丽江千古情':     ['eternal+love+lijiang', 'spectacular+show+yunnan', '千古情'],
+    '文海':           ['wenhai+lake+lijiang', 'highland+lake+yunnan', '文海'],
+    '玉水寨':         ['yushui+village+naxi', 'sacred+spring+lijiang', '玉水寨'],
+    '东巴谷':         ['dongba+valley+lijiang', 'naxi+culture+valley', '东巴谷'],
+    '观音峡':         ['guanyin+gorge+lijiang', 'canyon+waterfall+yunnan', '观音峡'],
+    '老君山黎明景区': ['laojun+mountain+sunrise', 'danxia+red+cliff', '老君山黎明'],
+    '永胜程海':       ['chenghai+lake+yongsheng', 'highland+lake+yunnan', '程海'],
+    '四方街':         ['sifang+street+lijiang', 'central+square+lijiang', '四方街'],
+    '忠义市场':       ['zhongyi+market+lijiang', 'local+market+yunnan', '忠义市场'],
+    '阿婆腊排骨':     ['cured+ribs+lijiang', 'naxi+hotpot+restaurant', '腊排骨'],
+    '88号小吃':       ['snack+shop+lijiang', 'street+food+old+town', '88号小吃']
+};
+
+// 画廊状态
+let galleryImages = [];
+let currentLightboxIndex = 0;
+
+function openGallery(spotName) {
+    const keywords = photoDatabase[spotName];
+    if (!keywords) {
+        alert('暂无该景点的图片数据');
+        return;
+    }
+
+    const modal = document.getElementById('galleryModal');
+    const grid = document.getElementById('galleryGrid');
+    const title = document.getElementById('galleryTitle');
+
+    title.textContent = '📸 ' + spotName + ' · 图集';
+    grid.innerHTML = '<div class="gallery-loading"><div class="spinner"></div><br>加载图片中...</div>';
+    modal.classList.add('show');
+
+    // 使用 Unsplash 搜索 API 生成图片
+    galleryImages = keywords.map((kw, idx) => {
+        // 使用 Unsplash source 随机图片
+        return `https://source.unsplash.com/600x450/?${kw}&sig=${idx}_${spotName.length}`;
+    });
+
+    // 延迟渲染图片以避免同时发送太多请求
+    setTimeout(() => {
+        grid.innerHTML = '';
+        galleryImages.forEach((src, idx) => {
+            const item = document.createElement('div');
+            item.className = 'gallery-item';
+            item.innerHTML = `
+                <img class="loading" src="${src}" alt="${spotName}"
+                     onload="this.classList.remove('loading');this.classList.add('loaded')"
+                     onerror="this.parentElement.style.display='none'"
+                     loading="lazy">
+                <div class="gallery-item-overlay">${spotName} · ${idx + 1}/${galleryImages.length}</div>
+            `;
+            item.addEventListener('click', () => openLightbox(idx));
+            grid.appendChild(item);
+        });
+    }, 100);
+}
+
+function closeGallery() {
+    document.getElementById('galleryModal').classList.remove('show');
+}
+
+function openLightbox(index) {
+    if (index < 0 || index >= galleryImages.length) return;
+    currentLightboxIndex = index;
+    const modal = document.getElementById('lightboxModal');
+    const img = document.getElementById('lightboxImg');
+    const counter = document.getElementById('lightboxCounter');
+
+    img.src = galleryImages[index];
+    counter.textContent = `${index + 1} / ${galleryImages.length}`;
+    modal.classList.add('show');
+}
+
+function closeLightbox() {
+    document.getElementById('lightboxModal').classList.remove('show');
+}
+
+function navLightbox(dir) {
+    let newIdx = currentLightboxIndex + dir;
+    if (newIdx < 0) newIdx = galleryImages.length - 1;
+    if (newIdx >= galleryImages.length) newIdx = 0;
+    openLightbox(newIdx);
+}
+
+// 键盘快捷键
+document.addEventListener('keydown', function(e) {
+    if (!document.getElementById('lightboxModal').classList.contains('show')) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') navLightbox(-1);
+    if (e.key === 'ArrowRight') navLightbox(1);
+});
+
+// =======================================================
+// [模块 15]: 美食地图图层
+// =======================================================
+let foodLayerActive = false;
+let foodLayerMarkers = [];
+
+function toggleFoodLayer() {
+    if (!map) return;
+    const btn = document.querySelector('.map-type-btn.food-layer');
+    const filterPanel = document.getElementById('foodFilterPanel');
+
+    if (foodLayerActive) {
+        // 关闭美食图层
+        foodLayerActive = false;
+        btn.classList.remove('active');
+        filterPanel.classList.remove('show');
+        // 移除美食标记
+        if (foodLayerMarkers.length) {
+            map.remove(foodLayerMarkers);
+            foodLayerMarkers = [];
+        }
+        // 恢复全量景点
+        currentTheme = 'all';
+        renderSpots();
+    } else {
+        // 开启美食图层
+        foodLayerActive = true;
+        btn.classList.add('active');
+        currentTheme = 'food';
+        renderFoodLayer();
+        filterPanel.classList.add('show');
+        updateFoodFilter();
+    }
+}
+
+function renderFoodLayer() {
+    if (!map) return;
+    // 移除旧的美食标记
+    if (foodLayerMarkers.length) {
+        map.remove(foodLayerMarkers);
+        foodLayerMarkers = [];
+    }
+
+    const spots = cityData[currentCity].spots.filter(s => s.theme === 'food');
+    const minRating = parseFloat(document.getElementById('foodRatingFilter').value) || 0;
+
+    spots.forEach(spot => {
+        const rating = getSpotRating(spot.name);
+        const avgStars = rating.avgStars || 0;
+
+        // 如果评分低于筛选条件，不显示
+        if (avgStars < minRating && minRating > 0) return;
+
+        // 创建带评分的美食标记
+        const ratingBadge = avgStars > 0
+            ? `<div class="spot-rating-badge">⭐${avgStars.toFixed(1)}</div>`
+            : `<div class="spot-rating-badge no-rating">暂无评分</div>`;
+
+        const content = `<div style="position:relative;text-align:center;filter:drop-shadow(0 3px 6px rgba(0,0,0,.35));">
+            <div style="background:linear-gradient(135deg,#F44336,#C62828);color:#fff;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:bold;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.25);border:1.5px solid rgba(255,255,255,.6);">🍜 ${spot.name.length > 5 ? spot.name.substring(0,4)+'…' : spot.name}</div>
+            <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #F44336;margin:0 auto;"></div>
+            <div style="width:11px;height:11px;background:#F44336;border:2.5px solid #fff;margin:3px auto;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.3);"></div>
+            ${ratingBadge}
+        </div>`;
+
+        let marker = new AMap.Marker({
+            position: spot.pos,
+            content: content,
+            offset: new AMap.Pixel(-30, -65),
+            extData: { name: spot.name, desc: spot.desc, theme: spot.theme }
+        });
+
+        // 点击事件
+        marker.on('click', function() {
+            if (!infoWindow) infoWindow = new AMap.InfoWindow({ offset: new AMap.Pixel(0, -45) });
+            voiceGuideSpot = spot;
+
+            const starsHtml = avgStars > 0 ? `⭐ ${avgStars.toFixed(1)} (${rating.count}人评价)` : '暂无评分';
+            const voiceBtnHtml = `<br><button onclick="startVoiceGuide()" style="margin-top:6px;padding:4px 10px;border:none;border-radius:6px;background:linear-gradient(135deg,#FFA500,#FF8C00);color:#fff;cursor:pointer;font-size:12px;">🎙️ AI语音导游</button>`;
+            const galleryBtnHtml = `<br><button onclick="openGallery('${escapeHtml(spot.name)}')" style="margin-top:6px;padding:4px 10px;border:none;border-radius:6px;background:linear-gradient(135deg,#9C27B0,#7B1FA2);color:#fff;cursor:pointer;font-size:12px;">📸 查看图集</button>`;
+            const bufferBtnHtml = `<br><button onclick="analyzeBuffer('${spot.name}')" style="margin-top:6px;width:100%;padding:6px;border:none;border-radius:6px;background:linear-gradient(135deg,#00d2ff,#3a7bd5);color:#fff;cursor:pointer;font-size:12px;font-weight:bold;">📡 扫描周边500m</button>`;
+
+            infoWindow.setContent(`<div style="padding:4px;max-width:260px;">
+                <b style="font-size:14px;">🍜 ${escapeHtml(spot.name)}</b>
+                <br><span style="font-size:11px;color:#F44336;font-weight:600;">${starsHtml}</span>
+                <br><span style="font-size:12px;color:#555;line-height:1.5;">${escapeHtml(spot.desc)}</span>
+                ${voiceBtnHtml}${galleryBtnHtml}${bufferBtnHtml}
+            </div>`);
+            infoWindow.open(map, marker.getPosition());
+            aiContextSpot = spot;
+        });
+
+        foodLayerMarkers.push(marker);
+    });
+
+    map.add(foodLayerMarkers);
+}
+
+function getSpotRating(spotName) {
+    const key = currentCity + '_' + spotName;
+    const saved = ratings[key];
+    if (!saved || !saved.stars || saved.stars === 0) {
+        return { avgStars: 0, count: 0 };
+    }
+    return { avgStars: saved.stars, count: 1 };
+}
+
+function updateFoodFilter() {
+    const val = parseFloat(document.getElementById('foodRatingFilter').value);
+    document.getElementById('foodRatingVal').textContent = val;
+
+    if (foodLayerActive) {
+        renderFoodLayer();
+    }
+
+    // 更新美食列表
+    const spots = cityData[currentCity].spots.filter(s => s.theme === 'food');
+    document.getElementById('foodSpotCount').textContent = spots.length;
+
+    const listEl = document.getElementById('foodSpotList');
+    listEl.innerHTML = spots.map(spot => {
+        const rating = getSpotRating(spot.name);
+        const stars = rating.avgStars > 0 ? '⭐'.repeat(Math.round(rating.avgStars)) : '暂无';
+        return `<div class="food-spot-item">
+            <span class="food-spot-name">🍜 ${spot.name}</span>
+            <span class="food-spot-stars">${stars}</span>
+        </div>`;
+    }).join('');
 }
 
 window.onload=()=>{
